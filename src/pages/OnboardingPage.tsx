@@ -483,6 +483,16 @@ export default function OnboardingPage() {
             {step.id === "anthropic" && (
               <>
                 <StepTitle title="Anthropic API Key" desc="A chave técnica que o Atlas usa para raciocinar (modelo Claude)." />
+                <Tutorial
+                  title="Como obter sua Anthropic API Key"
+                  steps={[
+                    "Acesse console.anthropic.com e faça login (ou crie sua conta).",
+                    "No menu lateral, clique em \"API Keys\".",
+                    "Clique em \"Create Key\", dê um nome (ex.: Atlas) e confirme.",
+                    "Copie a chave que começa com sk-ant- e cole abaixo. Ela só aparece uma vez.",
+                  ]}
+                  link={{ href: "https://console.anthropic.com/settings/keys", label: "Abrir Anthropic Console" }}
+                />
                 <Field label="Anthropic API Key" ok={tested.anthropic}>
                   <div className="flex gap-2">
                     <Input type="password" value={form.anthropic_key} onChange={onInput("anthropic_key")}
