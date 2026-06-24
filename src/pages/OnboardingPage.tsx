@@ -541,6 +541,17 @@ export default function OnboardingPage() {
             {step.id === "vps" && (
               <>
                 <StepTitle title="VPS Hostinger + OpenClaw (opcional)" desc="O executor que roda ações de browser. Pode pular e configurar depois." />
+                <Tutorial
+                  title="Como obter Workspace URL e Token do OpenClaw"
+                  steps={[
+                    "Acesse hpanel.hostinger.com → VPS e copie o IP público ou domínio onde o OpenClaw está rodando.",
+                    "Monte a Workspace URL no formato https://SEU-IP-OU-DOMINIO (sem barra no final).",
+                    "Conecte via SSH no VPS e rode: cat ~/.openclaw/token (ou o caminho onde você configurou).",
+                    "Copie o token e cole no campo abaixo.",
+                    "Teste no terminal: curl -H \"Authorization: Bearer SEU_TOKEN\" https://SEU-IP/health — deve responder 200.",
+                  ]}
+                  link={{ href: "https://hpanel.hostinger.com/", label: "Abrir Hostinger hPanel" }}
+                />
                 <Field label="OpenClaw Workspace URL"><Input value={form.openclaw_workspace_url} onChange={onInput("openclaw_workspace_url")} placeholder="https://workspace.openclaw.com" /></Field>
                 <Field label="OpenClaw Token" ok={tested.vps}>
                   <div className="flex gap-2">
