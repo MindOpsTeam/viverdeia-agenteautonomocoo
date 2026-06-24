@@ -69,16 +69,16 @@ VALUES ('process-imports', 'process-imports', false)
 ON CONFLICT (id) DO NOTHING;
 
 DROP POLICY IF EXISTS "process_imports_select" ON storage.objects;
-CREATE POLICY "process_imports_select" ON storage.objects FOR SELECT
+CREATE POLICY "process_imports_select" ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'process-imports'
     AND (storage.foldername(name))[1] IN (SELECT id::text FROM public.companies WHERE owner_id = auth.uid()));
 
 DROP POLICY IF EXISTS "process_imports_insert" ON storage.objects;
-CREATE POLICY "process_imports_insert" ON storage.objects FOR INSERT
+CREATE POLICY "process_imports_insert" ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'process-imports'
     AND (storage.foldername(name))[1] IN (SELECT id::text FROM public.companies WHERE owner_id = auth.uid()));
 
 DROP POLICY IF EXISTS "process_imports_delete" ON storage.objects;
-CREATE POLICY "process_imports_delete" ON storage.objects FOR DELETE
+CREATE POLICY "process_imports_delete" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'process-imports'
     AND (storage.foldername(name))[1] IN (SELECT id::text FROM public.companies WHERE owner_id = auth.uid()));
