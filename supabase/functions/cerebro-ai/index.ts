@@ -12,7 +12,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-6";
 
 const IDENTITY_SYSTEM = `
 Você ajuda a configurar a identidade do Atlas, um agente autônomo que atua como COO (Chief Operations Officer) de uma empresa.
