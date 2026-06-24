@@ -10,8 +10,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2,
+  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2, HelpCircle, ExternalLink,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -482,6 +483,16 @@ export default function OnboardingPage() {
             {step.id === "anthropic" && (
               <>
                 <StepTitle title="Anthropic API Key" desc="A chave técnica que o Atlas usa para raciocinar (modelo Claude)." />
+                <Tutorial
+                  title="Como obter sua Anthropic API Key"
+                  steps={[
+                    "Acesse console.anthropic.com e faça login (ou crie sua conta).",
+                    "No menu lateral, clique em \"API Keys\".",
+                    "Clique em \"Create Key\", dê um nome (ex.: Atlas) e confirme.",
+                    "Copie a chave que começa com sk-ant- e cole abaixo. Ela só aparece uma vez.",
+                  ]}
+                  link={{ href: "https://console.anthropic.com/settings/keys", label: "Abrir Anthropic Console" }}
+                />
                 <Field label="Anthropic API Key" ok={tested.anthropic}>
                   <div className="flex gap-2">
                     <Input type="password" value={form.anthropic_key} onChange={onInput("anthropic_key")}
@@ -500,6 +511,17 @@ export default function OnboardingPage() {
             {step.id === "github" && (
               <>
                 <StepTitle title="GitHub (opcional)" desc="Repositório privado onde o Atlas versiona as skills compiladas. Pode pular e configurar depois." />
+                <Tutorial
+                  title="Como obter Repo URL e Personal Access Token"
+                  steps={[
+                    "Crie (ou escolha) um repositório privado em github.com/new — copie a URL completa (ex.: https://github.com/empresa/atlas-skills).",
+                    "No GitHub, clique na sua foto → Settings → Developer settings (no rodapé).",
+                    "Vá em Personal access tokens → Fine-grained tokens → Generate new token.",
+                    "Em \"Repository access\" selecione apenas o repositório acima.",
+                    "Em \"Repository permissions\" dê Contents: Read and write e Metadata: Read. Gere e copie o token github_pat_...",
+                  ]}
+                  link={{ href: "https://github.com/settings/personal-access-tokens/new", label: "Criar token no GitHub" }}
+                />
                 <Field label="Repo URL"><Input value={form.github_repo_url} onChange={onInput("github_repo_url")} placeholder="https://github.com/empresa/atlas-skills" /></Field>
                 <Field label="PAT (fine-grained)" ok={tested.github}>
                   <div className="flex gap-2">
@@ -519,6 +541,17 @@ export default function OnboardingPage() {
             {step.id === "vps" && (
               <>
                 <StepTitle title="VPS Hostinger + OpenClaw (opcional)" desc="O executor que roda ações de browser. Pode pular e configurar depois." />
+                <Tutorial
+                  title="Como obter Workspace URL e Token do OpenClaw"
+                  steps={[
+                    "Acesse hpanel.hostinger.com → VPS e copie o IP público ou domínio onde o OpenClaw está rodando.",
+                    "Monte a Workspace URL no formato https://SEU-IP-OU-DOMINIO (sem barra no final).",
+                    "Conecte via SSH no VPS e rode: cat ~/.openclaw/token (ou o caminho onde você configurou).",
+                    "Copie o token e cole no campo abaixo.",
+                    "Teste no terminal: curl -H \"Authorization: Bearer SEU_TOKEN\" https://SEU-IP/health — deve responder 200.",
+                  ]}
+                  link={{ href: "https://hpanel.hostinger.com/", label: "Abrir Hostinger hPanel" }}
+                />
                 <Field label="OpenClaw Workspace URL"><Input value={form.openclaw_workspace_url} onChange={onInput("openclaw_workspace_url")} placeholder="https://workspace.openclaw.com" /></Field>
                 <Field label="OpenClaw Token" ok={tested.vps}>
                   <div className="flex gap-2">
@@ -547,6 +580,18 @@ export default function OnboardingPage() {
                   <>
                     <ModeToggle value={form.notion_mode} onChange={(v) => set("notion_mode", v as Form["notion_mode"])}
                       options={[{ value: "have", label: "Já tenho" }, { value: "create", label: "Criar pra mim" }]} />
+                    <Tutorial
+                      title="Como obter o Notion Token (Internal Integration Secret)"
+                      steps={[
+                        "Abra notion.so/profile/integrations e clique em \"New integration\".",
+                        "Dê um nome (ex.: Atlas), associe ao workspace certo e salve.",
+                        "Em \"Configuration\", copie o Internal Integration Secret (começa com secret_ ou ntn_).",
+                        form.notion_mode === "have"
+                          ? "Abra cada database que o Atlas vai usar, clique em \"...\" → \"Connections\" → adicione a integração Atlas."
+                          : "Você não precisa criar database — o Atlas vai criar um automaticamente. Só garanta que a integração tenha acesso ao workspace.",
+                      ]}
+                      link={{ href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" }}
+                    />
                     <Field label="Notion Token">
                       <Input type="password" value={form.notion_token} onChange={onInput("notion_token")}
                         placeholder={savedSecret("notion") ? "•••••• (salvo) — cole para reconectar" : "secret_... ou ntn_..."} />
@@ -593,6 +638,17 @@ export default function OnboardingPage() {
                   <>
                     <ModeToggle value={form.discord_mode} onChange={(v) => set("discord_mode", v as Form["discord_mode"])}
                       options={[{ value: "have", label: "Já tenho servidor" }, { value: "setup", label: "Configurar pra mim" }]} />
+                    <Tutorial
+                      title="Como obter Bot Token, Server ID e Public Key"
+                      steps={[
+                        "Acesse discord.com/developers/applications e clique em \"New Application\" (nome ex.: Atlas).",
+                        "Na aba \"Bot\" → Reset Token → copie o Bot Token. Ative os Privileged Gateway Intents (Message Content).",
+                        "Na aba \"General Information\" → copie a Public Key.",
+                        "Na aba \"OAuth2\" → URL Generator → marque bot + escopos Manage Channels e Send Messages → abra a URL gerada e adicione o bot ao seu servidor.",
+                        "No Discord, ative o Modo Desenvolvedor (Configurações → Avançado), clique com botão direito no nome do servidor → \"Copiar ID do servidor\". Esse é o Server (Guild) ID.",
+                      ]}
+                      link={{ href: "https://discord.com/developers/applications", label: "Abrir Discord Developer Portal" }}
+                    />
                     <Field label="Discord Bot Token">
                       <Input type="password" value={form.discord_bot_token} onChange={onInput("discord_bot_token")}
                         placeholder={savedSecret("discord") ? "•••••• (salvo) — cole para reconectar" : "bot token"} />
@@ -709,6 +765,27 @@ function StepTitle({ title, desc }: { title: string; desc: string }) {
       <h2 className="text-xl font-semibold">{title}</h2>
       <p className="text-sm text-muted-foreground">{desc}</p>
     </div>
+  );
+}
+
+function Tutorial({ title, steps, link }: { title: string; steps: React.ReactNode[]; link?: { href: string; label: string } }) {
+  return (
+    <Collapsible className="rounded-lg border border-dashed bg-muted/30">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground">
+        <HelpCircle className="h-3.5 w-3.5" />
+        <span>{title}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-3 pb-3 pt-1 text-xs text-muted-foreground">
+        <ol className="list-decimal space-y-1 pl-4">
+          {steps.map((s, i) => <li key={i}>{s}</li>)}
+        </ol>
+        {link && (
+          <a href={link.href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-primary hover:underline">
+            <ExternalLink className="h-3 w-3" /> {link.label}
+          </a>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
