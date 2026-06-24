@@ -207,7 +207,9 @@ export default function HomePage() {
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               {m.role === "assistant" && <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0"><Bot className="h-4 w-4" /></div>}
-              <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{m.content}</div>
+              <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted"}`}>
+                {m.role === "assistant" ? <MarkdownMessage content={m.content} /> : m.content}
+              </div>
               {m.role === "user" && <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0"><User className="h-4 w-4" /></div>}
             </div>
           ))}
