@@ -579,7 +579,7 @@ export default function OnboardingPage() {
     return (
       <div className="flex min-h-screen items-center justify-center px-6 bg-[hsl(var(--background))]">
         <div className="max-w-lg text-center space-y-5">
-          <div className="mx-auto h-14 w-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl font-bold">A</div>
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-info text-white flex items-center justify-center text-2xl font-bold">A</div>
           <h1 className="text-2xl font-bold">Atlas está pronto para operar a {form.name || "sua empresa"}.</h1>
           <p className="text-muted-foreground">
             Ele já conhece seu negócio, seus desafios e suas regras. A partir de agora, ele trabalha. Você decide.
@@ -598,13 +598,13 @@ export default function OnboardingPage() {
     <div className="min-h-screen flex flex-col bg-[hsl(var(--background))]">
       <header className="border-b bg-card px-6 py-4">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm font-bold">A</div>
+          <div className="h-8 w-8 rounded-lg bg-info text-white flex items-center justify-center text-sm font-bold">A</div>
           <div>
             <p className="text-sm font-medium">Vamos deixar seu Atlas pronto para operar</p>
             <p className="text-xs text-muted-foreground">8 etapas · seu progresso é salvo automaticamente.</p>
           </div>
           {analyzing && (
-            <Badge className="ml-auto bg-blue-600 hover:bg-blue-600 animate-pulse">
+            <Badge className="ml-auto bg-info hover:bg-info text-white animate-pulse">
               <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Analisando seu negócio…
             </Badge>
           )}
@@ -613,7 +613,7 @@ export default function OnboardingPage() {
           {STEPS.map((s, i) => (
             <div key={s.id} className="flex items-center gap-1.5">
               <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-                i < stepIdx ? "bg-emerald-600 text-white" : i === stepIdx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                i < stepIdx ? "bg-success text-white" : i === stepIdx ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
               }`}>
                 {i < stepIdx ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </span>
@@ -894,7 +894,7 @@ export default function OnboardingPage() {
               <>
                 <StepTitle title="Identidade do Atlas" desc="Como o agente se chama e fala com o time. Você pode refinar depois no Cérebro." />
                 {siteFilled && (
-                  <Badge className="bg-blue-600 hover:bg-blue-600">
+                  <Badge className="bg-info hover:bg-info text-white">
                     {contextBadge ? `Configurado para ${contextBadge} · Revise antes de continuar` : "Gerado a partir do seu site · Revise antes de continuar"}
                   </Badge>
                 )}
@@ -932,7 +932,7 @@ export default function OnboardingPage() {
             {step.id === "guardrails" && (
               <>
                 <StepTitle title="Guardrails" desc="Regras que o Atlas sempre respeita. Edite as sugestões ou escreva as suas." />
-                {siteFilled && <Badge className="bg-blue-600 hover:bg-blue-600">Sugerido para o seu contexto · Edite como preferir</Badge>}
+                {siteFilled && <Badge className="bg-info hover:bg-info text-white">Sugerido para o seu contexto · Edite como preferir</Badge>}
                 {form.guardrails.map((g, i) => (
                   <div key={i} className="space-y-1.5">
                     <Label className="text-sm">{`Guardrail ${i + 1}`}</Label>
@@ -1058,7 +1058,7 @@ function Field({ label, ok, children }: { label: string; ok?: boolean; children:
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label>{label}</Label>
-        {ok === true && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+        {ok === true && <CheckCircle2 className="h-4 w-4 text-success" />}
         {ok === false && <XCircle className="h-4 w-4 text-destructive" />}
       </div>
       {children}
@@ -1067,7 +1067,7 @@ function Field({ label, ok, children }: { label: string; ok?: boolean; children:
 }
 
 function SavedHint({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />{children}</p>;
+  return <p className="text-xs text-success flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />{children}</p>;
 }
 
 function SoonNote({ children }: { children: React.ReactNode }) {
