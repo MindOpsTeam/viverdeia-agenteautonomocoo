@@ -358,6 +358,7 @@ function GithubVpsSection({ companyId }: { companyId: string }) {
             <Button variant="outline" size="sm" onClick={testVps} disabled={busy === "test-vps"}>{busy === "test-vps" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar conexão</Button>
             <Button size="sm" onClick={saveVps} disabled={busy === "save-vps"}>{busy === "save-vps" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button>
           </div>
+          <Tutorial {...TUTORIALS.vps} />
         </CardContent>
       </Card>
     </>
