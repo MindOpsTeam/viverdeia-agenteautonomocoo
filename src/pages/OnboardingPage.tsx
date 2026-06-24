@@ -10,7 +10,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2, HelpCircle, ExternalLink,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2, HelpCircle, ExternalLink, MessageSquarePlus,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useOnboarding } from "@/hooks/useOnboarding";
@@ -29,8 +32,22 @@ const TONE_LABEL: Record<string, string> = {
   direct: "Direto e objetivo", formal: "Formal", informal: "Informal",
 };
 
+const SEGMENTS = ["SaaS", "E-commerce", "Serviços", "Consultoria", "Educação", "Saúde", "Varejo", "Indústria", "Agronegócio", "Outro"];
+const BUSINESS_MODELS = ["B2B", "B2C", "B2B2C", "Marketplace"];
+const TEAM_SIZES = ["1-5 pessoas", "6-15 pessoas", "16-50 pessoas", "51-200 pessoas", "200+"];
+const CHALLENGES = [
+  "Execução de tarefas (as coisas não saem do papel)",
+  "Comunicação entre áreas (time não se fala bem)",
+  "Processos não documentados (depende do conhecimento de pessoas)",
+  "Gestão de tempo (muita reunião, pouca entrega)",
+  "Métricas (não sei o que está funcionando)",
+  "Crescimento acelerado (estrutura não acompanha)",
+  "Outro",
+];
+
 type NotionDb = { database_id: string; name: string; type: "backlog" | "knowledge" | "ignore" };
 type DiscordChannel = { id: string; name: string };
+type Guardrail = { content: string; reason: string };
 
 const STEPS = [
   { id: "empresa", label: "Empresa" },
@@ -44,14 +61,27 @@ const STEPS = [
 ] as const;
 type StepId = (typeof STEPS)[number]["id"];
 
-const DEFAULT_GUARDRAILS = [
-  "Nunca aprovar pagamentos ou contratos sem confirmação de um humano autorizado.",
-  "Sempre registrar evidência antes de marcar uma tarefa como concluída.",
-  "Em caso de bloqueio, avisar o time no canal de alertas em vez de seguir sozinho.",
+const DEFAULT_GUARDRAILS: Guardrail[] = [
+  { content: "Nunca enviar comunicação externa (cliente/fornecedor) sem aprovação humana explícita.", reason: "Guardrail universal de segurança." },
+  { content: "Nunca executar pagamento ou transferência financeira de qualquer valor.", reason: "Guardrail universal de segurança." },
+  { content: "Sempre registrar evidência antes de marcar uma tarefa como concluída.", reason: "Garante rastreabilidade do trabalho." },
 ];
+
+function normalizeGuardrails(si: any): Guardrail[] | null {
+  if (Array.isArray(si?.guardrails) && si.guardrails.length) {
+    return si.guardrails
+      .map((g: any) => ({ content: String(g?.content ?? "").trim(), reason: String(g?.reason ?? "").trim() }))
+      .filter((g: Guardrail) => g.content).slice(0, 5);
+  }
+  if (Array.isArray(si?.directives) && si.directives.length) {
+    return si.directives.slice(0, 5).map((c: any) => ({ content: String(c).trim(), reason: "" })).filter((g: Guardrail) => g.content);
+  }
+  return null;
+}
 
 type Form = {
   name: string; timezone: string; company_website: string;
+  segment: string; business_model: string; team_size: string; main_challenges: string[];
   anthropic_key: string;
   github_repo_url: string; github_pat: string;
   openclaw_workspace_url: string; openclaw_token: string;
@@ -66,11 +96,12 @@ type Form = {
   discord_channel_id: string;
   agent_name: string; tone: "direct" | "formal" | "informal";
   mission: string; presentation: string; operational_context: string;
-  guardrails: string[];
+  guardrails: Guardrail[];
 };
 
 const initialForm: Form = {
   name: "", timezone: "America/Sao_Paulo", company_website: "",
+  segment: "", business_model: "", team_size: "", main_challenges: [],
   anthropic_key: "",
   github_repo_url: "", github_pat: "",
   openclaw_workspace_url: "", openclaw_token: "",
@@ -94,35 +125,49 @@ export default function OnboardingPage() {
   const [stepIdx, setStepIdx] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [finished, setFinished] = useState(false);
   const [siteFilled, setSiteFilled] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardQuestions, setWizardQuestions] = useState<string[]>([]);
+  const [wizardAnswers, setWizardAnswers] = useState<Record<number, string>>({});
+  const [wizardBusy, setWizardBusy] = useState(false);
   const hydrated = useRef(false);
-  const siteAppliedRef = useRef(false);
+  const ctxAppliedRef = useRef(false);
 
-  // Pré-preenche identidade + guardrails a partir da análise do site (uma vez).
-  const applySiteIdentity = (si: any) => {
-    if (!si || siteAppliedRef.current) return;
-    siteAppliedRef.current = true;
+  // Aplica a identidade gerada pela IA. force=true sobrescreve campos já preenchidos.
+  const applyIdentity = (si: any, force = false) => {
+    if (!si) return;
+    if (!force && ctxAppliedRef.current) return;
+    ctxAppliedRef.current = true;
+    const guardrails = normalizeGuardrails(si);
     setForm((f) => ({
       ...f,
-      agent_name: f.agent_name && f.agent_name !== "Atlas" ? f.agent_name : (si.agent_name || f.agent_name),
+      agent_name: force || !f.agent_name || f.agent_name === "Atlas" ? (si.agent_name || f.agent_name) : f.agent_name,
       tone: ["direct", "formal", "informal"].includes(si.communication_tone) ? si.communication_tone : f.tone,
-      mission: f.mission || si.mission || "",
-      presentation: f.presentation || si.presentation || "",
-      guardrails: Array.isArray(si.directives) && si.directives.length ? si.directives.slice(0, 3) : f.guardrails,
+      mission: force ? (si.mission || f.mission) : (f.mission || si.mission || ""),
+      presentation: force ? (si.presentation || f.presentation) : (f.presentation || si.presentation || ""),
+      guardrails: guardrails ?? f.guardrails,
     }));
+    if (Array.isArray(si.questions) && si.questions.length) setWizardQuestions(si.questions);
     setSiteFilled(true);
   };
 
-  // Análise do site em background (disparada após validar a Anthropic na etapa 2).
-  const analyzeWebsite = async () => {
+  // Análise de negócio em background (site + segmento + modelo + tamanho + desafios).
+  const analyzeBusiness = async () => {
     const cid = ob.companyId;
-    if (!cid || !form.company_website.trim()) return;
+    if (!cid) return;
+    setAnalyzing(true);
     try {
       const { data, error } = await supabase.functions.invoke("cerebro-ai", {
         body: {
           company_id: cid, mode: "identity",
           payload: {
-            website_url: form.company_website.trim(),
+            website_url: form.company_website.trim() || undefined,
+            segment: form.segment || undefined,
+            business_model: form.business_model || undefined,
+            team_size: form.team_size || undefined,
+            main_challenges: form.main_challenges,
             about_company: `Empresa: ${form.name}.`,
             about_agent: `Nome do agente: ${form.agent_name}.`,
           },
@@ -132,9 +177,10 @@ export default function OnboardingPage() {
       const r = (data as any)?.result;
       if (!r) return;
       await ob.mergeDraft({ site_identity: r });
-      applySiteIdentity(r);
-      toast.success("Identidade sugerida a partir do seu site — revise na etapa de Identidade.");
+      applyIdentity(r);
+      toast.success("Atlas configurado para o seu negócio — revise na etapa de Identidade.");
     } catch (_) { /* silencioso: roda em background */ }
+    finally { setAnalyzing(false); }
   };
 
   // ---------- Reidratação ao retomar ----------
@@ -153,6 +199,10 @@ export default function OnboardingPage() {
       name: ob.snapshot.companyName || f.name,
       timezone: cfg.timezone || f.timezone,
       company_website: (ob.draft as any)?.company_website || f.company_website,
+      segment: cfg.segment || f.segment,
+      business_model: cfg.business_model || f.business_model,
+      team_size: cfg.team_size || f.team_size,
+      main_challenges: Array.isArray(cfg.main_challenges) ? cfg.main_challenges : f.main_challenges,
       github_repo_url: cfg.github_repo_url || "",
       openclaw_workspace_url: cfg.openclaw_workspace_url || "",
       backlog_provider: cfg.backlog_provider || "notion",
@@ -172,7 +222,7 @@ export default function OnboardingPage() {
     });
 
     const si = (ob.draft as any)?.site_identity;
-    if (si) applySiteIdentity(si);
+    if (si) applyIdentity(si);
 
     const resume = Math.min(Math.max((ob.currentStep ?? 1) - 1, 0), STEPS.length - 1);
     setStepIdx(resume);
@@ -182,6 +232,12 @@ export default function OnboardingPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   const onInput = <K extends keyof Form>(key: K) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => set(key, e.target.value as Form[K]);
+
+  const toggleChallenge = (c: string) => {
+    const has = form.main_challenges.includes(c);
+    if (!has && form.main_challenges.length >= 3) { toast.error("Escolha no máximo 3 desafios."); return; }
+    set("main_challenges", has ? form.main_challenges.filter((x) => x !== c) : [...form.main_challenges, c]);
+  };
 
   const credsPresent = ob.snapshot.credsPresent ?? [];
   const step = STEPS[stepIdx];
@@ -220,9 +276,10 @@ export default function OnboardingPage() {
       await ob.mergeDraft({ validations: { anthropic: true } });
       setTested((t) => ({ ...t, anthropic: true }));
       toast.success("Chave Anthropic validada e salva.");
-      // Dispara a análise do site em background (agora que a chave existe no Vault).
-      if (form.company_website.trim() && !(ob.draft as any)?.site_identity && !siteAppliedRef.current) {
-        void analyzeWebsite();
+      // Dispara a análise de negócio em background (agora que a chave existe no Vault).
+      const hasContext = !!form.company_website.trim() || !!form.segment || form.main_challenges.length > 0;
+      if (hasContext && !(ob.draft as any)?.site_identity && !ctxAppliedRef.current) {
+        void analyzeBusiness();
       }
     } catch (e: any) { toast.error(e?.message ?? "Erro ao validar"); }
     finally { setBusy(null); }
@@ -314,7 +371,6 @@ export default function OnboardingPage() {
 
       await ob.storeSecret("discord", form.discord_bot_token);
       set("discord_channels", channels);
-      // mode setup: usa o 1º canal criado (#operações) como principal; have: deixa o usuário escolher
       const chosen = mode === "setup" ? channels[0].id : (form.discord_channel_id || channels[0].id);
       set("discord_channel_id", chosen);
       await ob.mergeDraft({ validations: { discord: true } });
@@ -324,6 +380,7 @@ export default function OnboardingPage() {
     finally { setBusy(null); }
   };
 
+  // Preencher com IA (rápido) — usa o contexto coletado e sobrescreve os campos.
   const fillIdentityWithAI = async () => {
     const cid = ob.companyId ?? (await ob.ensureCompany(form.name, form.timezone));
     if (!cid) { toast.error("Conclua a etapa Empresa primeiro."); return; }
@@ -336,6 +393,9 @@ export default function OnboardingPage() {
         body: {
           company_id: cid, mode: "identity",
           payload: {
+            website_url: form.company_website.trim() || undefined,
+            segment: form.segment || undefined, business_model: form.business_model || undefined,
+            team_size: form.team_size || undefined, main_challenges: form.main_challenges,
             about_company: `Empresa: ${form.name}. Missão: ${form.mission}. Contexto: ${form.operational_context}`,
             about_agent: `Nome do agente: ${form.agent_name}. Tom desejado: ${TONE_LABEL[form.tone]}.`,
           },
@@ -344,17 +404,44 @@ export default function OnboardingPage() {
       if (error) { toast.error("Falha ao gerar com IA"); return; }
       const r = (data as any)?.result;
       if (!r) { toast.error((data as any)?.error ?? "IA não retornou conteúdo"); return; }
-      setForm((f) => ({
-        ...f,
-        agent_name: r.agent_name || f.agent_name,
-        tone: ["direct", "formal", "informal"].includes(r.communication_tone) ? r.communication_tone : f.tone,
-        presentation: r.presentation || f.presentation,
-        mission: r.mission || f.mission,
-        guardrails: Array.isArray(r.directives) && r.directives.length ? r.directives.slice(0, 3) : f.guardrails,
-      }));
+      applyIdentity(r, true);
       toast.success("Identidade preenchida pela IA — revise antes de continuar.");
     } catch (e: any) { toast.error(e?.message ?? "Erro na IA"); }
     finally { setBusy(null); }
+  };
+
+  // Refinar com mais perguntas (dialog) — respostas re-alimentam a IA.
+  const runRefine = async () => {
+    const cid = ob.companyId;
+    if (!cid) { toast.error("Empresa não encontrada."); return; }
+    setWizardBusy(true);
+    try {
+      const wizard_answers = wizardQuestions
+        .map((q, i) => ({ question: q, answer: (wizardAnswers[i] ?? "").trim() }))
+        .filter((a) => a.answer);
+      if (!wizard_answers.length) { toast.error("Responda ao menos uma pergunta."); return; }
+      const { data, error } = await supabase.functions.invoke("cerebro-ai", {
+        body: {
+          company_id: cid, mode: "identity",
+          payload: {
+            website_url: form.company_website.trim() || undefined,
+            segment: form.segment || undefined, business_model: form.business_model || undefined,
+            team_size: form.team_size || undefined, main_challenges: form.main_challenges,
+            about_company: `Empresa: ${form.name}. Missão atual: ${form.mission}.`,
+            about_agent: `Nome: ${form.agent_name}. Tom: ${TONE_LABEL[form.tone]}.`,
+            wizard_answers,
+          },
+        },
+      });
+      if (error) { toast.error("Falha ao refinar"); return; }
+      const r = (data as any)?.result;
+      if (!r) { toast.error((data as any)?.error ?? "IA não retornou conteúdo"); return; }
+      await ob.mergeDraft({ site_identity: r });
+      applyIdentity(r, true);
+      setWizardOpen(false);
+      toast.success("Identidade refinada com base nas suas respostas.");
+    } catch (e: any) { toast.error(e?.message ?? "Erro ao refinar"); }
+    finally { setWizardBusy(false); }
   };
 
   // ---------- Navegação ----------
@@ -365,7 +452,13 @@ export default function OnboardingPage() {
       case "empresa": {
         const cid = await ob.ensureCompany(form.name, form.timezone);
         if (!cid) throw new Error("Falha ao salvar a empresa");
-        await ob.patchConfig({ timezone: form.timezone });
+        await ob.patchConfig({
+          timezone: form.timezone,
+          segment: form.segment || null,
+          business_model: form.business_model || null,
+          team_size: form.team_size || null,
+          main_challenges: form.main_challenges,
+        });
         await ob.mergeDraft({ company_website: form.company_website.trim() });
         break;
       }
@@ -410,7 +503,7 @@ export default function OnboardingPage() {
             presentation: form.presentation,
             mission: form.mission,
             operational_context: form.operational_context,
-            generated_by_ai: false,
+            generated_by_ai: siteFilled,
             reviewed_at: new Date().toISOString(),
           }, { onConflict: "company_id" });
           await ob.patchConfig({
@@ -452,14 +545,12 @@ export default function OnboardingPage() {
     try {
       await persistStep("identidade"); // garante identidade salva
       const cid = ob.companyId;
-      // Guardrails → diretivas ativas
       if (cid) {
-        const rows = form.guardrails.map((g) => g.trim()).filter(Boolean).map((content) => ({
+        const rows = form.guardrails.map((g) => g.content.trim()).filter(Boolean).map((content) => ({
           company_id: cid, content, source: "wizard", status: "active",
         }));
         if (rows.length) await sb().from("directives").insert(rows);
       }
-      // Finaliza (ativa o agente + welcome + brain-sync)
       const { data, error } = await supabase.functions.invoke("onboard-agent", { body: {} });
       if (error || !(data as any)?.success) {
         toast.error((data as any)?.error ?? `Falha ao finalizar: ${error?.message ?? "erro"}`);
@@ -468,8 +559,7 @@ export default function OnboardingPage() {
       }
       await ob.markStepComplete("guardrails");
       await ob.completeOnboarding();
-      toast.success("Atlas ativado! Bem-vindo.");
-      navigate("/?welcome=1", { replace: true });
+      setFinished(true);
     } catch (e: any) {
       toast.error(e?.message ?? "Falha ao finalizar");
       setSubmitting(false);
@@ -484,8 +574,25 @@ export default function OnboardingPage() {
     );
   }
 
+  // Tela final de encerramento.
+  if (finished) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6 bg-[hsl(var(--background))]">
+        <div className="max-w-lg text-center space-y-5">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl font-bold">A</div>
+          <h1 className="text-2xl font-bold">Atlas está pronto para operar a {form.name || "sua empresa"}.</h1>
+          <p className="text-muted-foreground">
+            Ele já conhece seu negócio, seus desafios e suas regras. A partir de agora, ele trabalha. Você decide.
+          </p>
+          <Button size="lg" onClick={() => navigate("/?welcome=1", { replace: true })}>Começar a operar →</Button>
+        </div>
+      </div>
+    );
+  }
+
   const isLast = stepIdx === STEPS.length - 1;
   const savedSecret = (svc: string) => credsPresent.includes(svc);
+  const contextBadge = [form.segment, form.business_model, form.team_size].filter(Boolean).join(" · ");
 
   return (
     <div className="min-h-screen flex flex-col bg-[hsl(var(--background))]">
@@ -496,6 +603,11 @@ export default function OnboardingPage() {
             <p className="text-sm font-medium">Vamos deixar seu Atlas pronto para operar</p>
             <p className="text-xs text-muted-foreground">8 etapas · seu progresso é salvo automaticamente.</p>
           </div>
+          {analyzing && (
+            <Badge className="ml-auto bg-blue-600 hover:bg-blue-600 animate-pulse">
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Analisando seu negócio…
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-1.5 mt-4 flex-wrap">
           {STEPS.map((s, i) => (
@@ -518,7 +630,7 @@ export default function OnboardingPage() {
             {/* 1 — Empresa */}
             {step.id === "empresa" && (
               <>
-                <StepTitle title="Empresa" desc="Identifique sua empresa e o fuso horário da operação." />
+                <StepTitle title="Empresa" desc="Conte sobre o seu negócio — usamos para pré-configurar o Atlas." />
                 <Field label="Nome da empresa"><Input value={form.name} onChange={onInput("name")} maxLength={120} /></Field>
                 <Field label="Fuso horário">
                   <Select value={form.timezone} onValueChange={(v) => set("timezone", v)}>
@@ -530,7 +642,29 @@ export default function OnboardingPage() {
                   <Field label="Site da empresa">
                     <Input value={form.company_website} onChange={onInput("company_website")} placeholder="https://suaempresa.com.br" />
                   </Field>
-                  <p className="text-xs text-muted-foreground">Opcional — usamos para sugerir a identidade do Atlas automaticamente.</p>
+                  <p className="text-xs text-muted-foreground">Usamos para entender seu negócio e pré-configurar o Atlas.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Segmento">
+                    <Select value={form.segment} onValueChange={(v) => set("segment", v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Tamanho do time">
+                    <Select value={form.team_size} onValueChange={(v) => set("team_size", v)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{TEAM_SIZES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                <Field label="Modelo de negócio">
+                  <Chips options={BUSINESS_MODELS} selected={form.business_model ? [form.business_model] : []} onToggle={(v) => set("business_model", v)} />
+                </Field>
+                <div className="space-y-1.5">
+                  <Field label="Maior desafio operacional hoje (até 3)">
+                    <Chips options={CHALLENGES} selected={form.main_challenges} onToggle={toggleChallenge} multi />
+                  </Field>
                 </div>
               </>
             )}
@@ -759,8 +893,17 @@ export default function OnboardingPage() {
             {step.id === "identidade" && (
               <>
                 <StepTitle title="Identidade do Atlas" desc="Como o agente se chama e fala com o time. Você pode refinar depois no Cérebro." />
-                {siteFilled && <Badge className="bg-blue-600 hover:bg-blue-600">Gerado a partir do seu site · Revise antes de continuar</Badge>}
-                <div className="flex justify-end">
+                {siteFilled && (
+                  <Badge className="bg-blue-600 hover:bg-blue-600">
+                    {contextBadge ? `Configurado para ${contextBadge} · Revise antes de continuar` : "Gerado a partir do seu site · Revise antes de continuar"}
+                  </Badge>
+                )}
+                <div className="flex flex-wrap justify-end gap-2">
+                  {wizardQuestions.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => setWizardOpen(true)} disabled={busy === "ai"}>
+                      <MessageSquarePlus className="h-4 w-4 mr-1" /> Refinar com mais perguntas
+                    </Button>
+                  )}
                   <Button variant="secondary" size="sm" onClick={fillIdentityWithAI} disabled={busy === "ai"}>
                     {busy === "ai" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Wand2 className="h-4 w-4 mr-1" />}
                     Preencher com IA
@@ -789,12 +932,14 @@ export default function OnboardingPage() {
             {step.id === "guardrails" && (
               <>
                 <StepTitle title="Guardrails" desc="Regras que o Atlas sempre respeita. Edite as sugestões ou escreva as suas." />
-                {siteFilled && <Badge className="bg-blue-600 hover:bg-blue-600">Sugerido com base no seu site · Edite como preferir</Badge>}
+                {siteFilled && <Badge className="bg-blue-600 hover:bg-blue-600">Sugerido para o seu contexto · Edite como preferir</Badge>}
                 {form.guardrails.map((g, i) => (
-                  <Field key={i} label={`Guardrail ${i + 1}`}>
-                    <Textarea value={g} rows={2} onChange={(e) =>
-                      set("guardrails", form.guardrails.map((x, j) => j === i ? e.target.value : x))} />
-                  </Field>
+                  <div key={i} className="space-y-1.5">
+                    <Label className="text-sm">{`Guardrail ${i + 1}`}</Label>
+                    <Textarea value={g.content} rows={2} onChange={(e) =>
+                      set("guardrails", form.guardrails.map((x, j) => j === i ? { ...x, content: e.target.value } : x))} />
+                    {g.reason && <p className="text-xs text-muted-foreground">💡 {g.reason}</p>}
+                  </div>
                 ))}
               </>
             )}
@@ -826,6 +971,28 @@ export default function OnboardingPage() {
           )}
         </div>
       </footer>
+
+      {/* Dialog: refinar identidade com mais perguntas */}
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Refinar identidade com mais perguntas</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Responda o que fizer sentido — o Atlas usa para personalizar ainda mais.</p>
+          <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+            {wizardQuestions.map((q, i) => (
+              <div key={i} className="space-y-1.5">
+                <Label className="text-sm">{q}</Label>
+                <Textarea rows={2} value={wizardAnswers[i] ?? ""} onChange={(e) => setWizardAnswers((a) => ({ ...a, [i]: e.target.value }))} />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setWizardOpen(false)} disabled={wizardBusy}>Cancelar</Button>
+            <Button onClick={runRefine} disabled={wizardBusy}>
+              {wizardBusy && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Refinar identidade
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -841,6 +1008,26 @@ function StepTitle({ title, desc }: { title: string; desc: string }) {
     <div className="mb-2">
       <h2 className="text-xl font-semibold">{title}</h2>
       <p className="text-sm text-muted-foreground">{desc}</p>
+    </div>
+  );
+}
+
+function Chips({ options, selected, onToggle, multi }: {
+  options: string[]; selected: string[]; onToggle: (v: string) => void; multi?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const on = selected.includes(o);
+        return (
+          <button key={o} type="button" onClick={() => onToggle(o)}
+            className={`rounded-full border px-3 py-1.5 text-xs transition ${
+              on ? "border-primary bg-primary/10 font-medium text-foreground" : "border-border text-muted-foreground hover:bg-muted/50"
+            }`}>
+            {multi && on && <Check className="inline h-3 w-3 mr-1" />}{o}
+          </button>
+        );
+      })}
     </div>
   );
 }

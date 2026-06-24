@@ -15,18 +15,22 @@ const corsHeaders = {
 const MODEL = "claude-sonnet-4-6";
 
 const IDENTITY_SYSTEM = `
-Você ajuda a configurar a identidade do Atlas, um agente autônomo que atua como COO (Chief Operations Officer) de uma empresa.
-A partir das informações sobre a empresa e sobre como o agente deve agir, proponha uma identidade.
+Você configura a identidade do Atlas, um Chief Operations Officer (COO) autônomo de alto nível.
+Use o contexto de negócio (segmento, modelo, tamanho do time, desafios e o site) para PERSONALIZAR — nada genérico.
+Mapeie o tom ao segmento (ex.: Saúde → formal; SaaS → direto; Educação → próximo/informal).
 Responda SEMPRE em JSON estrito, sem markdown, neste formato:
 {
-  "agent_name": "nome curto do agente (ex.: Atlas)",
+  "agent_name": "nome curto do agente (padrão Atlas)",
   "communication_tone": "direct" | "formal" | "informal",
-  "presentation": "1-2 frases de como o agente se apresenta ao time",
-  "mission": "o que o agente faz por esta empresa, em 1-2 frases",
-  "target_audience": "com quem a empresa trabalha (público-alvo)",
-  "cases": [{ "title": "título curto", "result": "resultado concreto já entregue" }],
-  "directives": ["3 a 5 guardrails iniciais claros e acionáveis"]
+  "presentation": "1-2 frases de como o Atlas se apresenta ao time, personalizado ao contexto",
+  "mission": "missão específica para o segmento e o modelo de negócio, em 1-2 frases",
+  "target_audience": "público-alvo da empresa",
+  "cases": [{ "title": "título curto", "result": "resultado concreto" }],
+  "guardrails": [{ "content": "regra clara e acionável", "reason": "por que é recomendada para este contexto" }],
+  "questions": ["3 a 5 perguntas específicas ao contexto para refinar a identidade"]
 }
+Regras dos guardrails: EXATAMENTE 5 — 2 universais (nunca comunicação externa sem aprovação; nunca pagamento) e 3 específicos para o segmento e os desafios informados. 'reason' curto em cada um.
+Regras das questions: curtas e específicas ao segmento/modelo/tamanho/desafios — nunca perguntas genéricas.
 `.trim();
 
 const DIRECTIVE_SYSTEM = `
@@ -184,14 +188,32 @@ Deno.serve(async (req) => {
     let result: any;
     if (mode === "identity") {
       const siteText = payload?.website_url ? await fetchWebsiteText(payload.website_url) : "";
+      const ctxLines = [
+        payload?.segment ? `Segmento: ${payload.segment}` : "",
+        payload?.business_model ? `Modelo de negócio: ${payload.business_model}` : "",
+        payload?.team_size ? `Tamanho do time: ${payload.team_size}` : "",
+        Array.isArray(payload?.main_challenges) && payload.main_challenges.length
+          ? `Maiores desafios operacionais: ${payload.main_challenges.join("; ")}` : "",
+      ].filter(Boolean).join("\n");
+      const answers = Array.isArray(payload?.wizard_answers) && payload.wizard_answers.length
+        ? "\n\nRespostas do gestor às perguntas de refinamento:\n" +
+          payload.wizard_answers.map((a: any) => `- ${a.question}: ${a.answer}`).join("\n")
+        : "";
       const userPrompt =
         `Sobre a empresa (o que faz, missão, público-alvo, cases/resultados):\n${payload?.about_company ?? "(não informado)"}\n\n` +
+        (ctxLines ? `Contexto de negócio:\n${ctxLines}\n\n` : "") +
         (siteText ? `Conteúdo extraído do site da empresa (${payload.website_url}):\n${siteText}\n\n` : "") +
-        `Sobre o agente (como deve agir):\n${payload?.about_agent ?? "(não informado)"}\n\n` +
-        `Proponha a identidade em JSON estrito.`;
+        `Sobre o agente (como deve agir):\n${payload?.about_agent ?? "(não informado)"}` +
+        answers +
+        `\n\nProponha a identidade em JSON estrito.`;
       const parsed = await callClaude(anthropicKey, IDENTITY_SYSTEM, userPrompt);
       const tone = ["direct", "formal", "informal"].includes(parsed.communication_tone)
         ? parsed.communication_tone : "direct";
+      const guardrails = Array.isArray(parsed.guardrails)
+        ? parsed.guardrails.map((g: any) => ({ content: String(g?.content ?? "").trim(), reason: String(g?.reason ?? "").trim() })).filter((g: any) => g.content).slice(0, 5)
+        : [];
+      const questions = Array.isArray(parsed.questions)
+        ? parsed.questions.map((q: any) => String(q).trim()).filter(Boolean).slice(0, 5) : [];
       result = {
         agent_name: String(parsed.agent_name ?? "Atlas").slice(0, 60),
         communication_tone: tone,
@@ -199,7 +221,11 @@ Deno.serve(async (req) => {
         mission: String(parsed.mission ?? ""),
         target_audience: String(parsed.target_audience ?? ""),
         cases: Array.isArray(parsed.cases) ? parsed.cases.map((c: any) => ({ title: String(c?.title ?? ""), result: String(c?.result ?? "") })).filter((c: any) => c.title).slice(0, 6) : [],
-        directives: Array.isArray(parsed.directives) ? parsed.directives.map((d: any) => String(d)).slice(0, 6) : [],
+        guardrails,
+        questions,
+        // compatibilidade: useCerebro consome result.directives (string[])
+        directives: guardrails.length ? guardrails.map((g: any) => g.content)
+          : (Array.isArray(parsed.directives) ? parsed.directives.map((d: any) => String(d)).slice(0, 6) : []),
       };
     } else if (mode === "directive") {
       const description = payload?.description ?? "";

@@ -69,7 +69,10 @@ function buildSkills(ctx: any): string {
 // compatibilidade com o painel (coo-chat/execute-task leem agent_config)
 function buildSoul(ctx: any): string {
   const name = ctx?.agent_name || "Atlas";
-  return [
+  // System prompt base (Atlas COO) na frente — assim coo-chat/execute-task usam o prompt
+  // mesmo sem GitHub configurado. A identidade personalizada vem logo abaixo.
+  const base = ctx?.system_prompt ? `${ctx.system_prompt}\n\n---\n\n` : "";
+  return base + [
     `# Identidade do ${name}`, `Nome: ${name}`, `Tom: ${TONE_LABEL[ctx?.communication_tone] ?? "Direto e objetivo"}`,
     ctx?.mission ? `Missão: ${ctx.mission}` : "Papel: Braço operacional autônomo da empresa.",
     ctx?.presentation ? `\n## Como se apresenta\n${ctx.presentation}` : "",
