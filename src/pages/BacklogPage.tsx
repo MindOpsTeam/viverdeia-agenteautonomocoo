@@ -222,16 +222,16 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
           <Badge variant="outline" className="text-[10px]">{SOURCE_LABEL[task.source ?? "notion"] ?? task.source}</Badge>
         )}
         {isAgent(task.assigned_to) ? (
-          <Badge className="text-[10px] bg-blue-600 hover:bg-blue-600"><Bot className="h-3 w-3 mr-0.5" /> Atlas</Badge>
+          <Badge className="text-[10px] bg-info hover:bg-info text-white"><Bot className="h-3 w-3 mr-0.5" /> Atlas</Badge>
         ) : (
           <Badge variant="secondary" className="text-[10px]"><User className="h-3 w-3 mr-0.5" /> {task.assigned_to}</Badge>
         )}
         {task.status === "done" && (
-          <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600"><CheckCircle2 className="h-3 w-3 mr-0.5" /> Validado</Badge>
+          <Badge className="text-[10px] bg-success hover:bg-success text-white"><CheckCircle2 className="h-3 w-3 mr-0.5" /> Validado</Badge>
         )}
       </div>
       {blocked && task.block_reason && (
-        <p className="text-xs text-amber-700 mt-2 line-clamp-2">⛔ {task.block_reason}</p>
+        <p className="text-xs text-warning mt-2 line-clamp-2">⛔ {task.block_reason}</p>
       )}
     </button>
   );
@@ -271,7 +271,7 @@ function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void 
               {task.description && <p className="text-muted-foreground">{task.description}</p>}
 
               {task.status === "blocked" && task.block_reason && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-warning">
                   <strong>Bloqueio:</strong> {task.block_reason}
                 </div>
               )}
