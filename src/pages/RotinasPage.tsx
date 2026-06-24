@@ -74,7 +74,7 @@ export default function RotinasPage() {
             <h2 className="text-xl font-semibold">Aguardando aprovação</h2>
             <div className="space-y-2">
               {state.pending.map((r) => (
-                <div key={r.id} className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+                <div key={r.id} className="rounded-xl border border-warning/30 bg-warning/10 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium">{r.name}</p>
@@ -84,7 +84,7 @@ export default function RotinasPage() {
                     </div>
                     {isAdmin && (
                       <div className="flex gap-2">
-                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => state.setStatus(r.id, "active")}>
+                        <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => state.setStatus(r.id, "active")}>
                           <Check className="h-4 w-4 mr-1" /> Aprovar
                         </Button>
                         <Button size="sm" variant="outline" className="text-destructive border-destructive/40" onClick={() => state.setStatus(r.id, "rejected")}>
