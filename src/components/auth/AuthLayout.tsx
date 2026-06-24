@@ -8,52 +8,34 @@ export function AuthLayout() {
   return (
     <>
       <style>{`
-        .auth-wrap {
+        .auth-container {
           position: relative;
-          width: 880px;
+          width: 850px;
           max-width: 100%;
-          height: 580px;
-          border-radius: 28px;
+          height: 600px;
+          background: hsl(var(--card));
+          border-radius: 30px;
+          box-shadow: 0 0 30px rgba(0,0,0,.2);
           overflow: hidden;
           margin: 20px;
-          background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(247,248,250,0.72) 100%);
-          backdrop-filter: blur(28px) saturate(180%);
-          -webkit-backdrop-filter: blur(28px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.92);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.95),
-            0 32px 80px rgba(10,31,59,0.14),
-            0 4px 16px rgba(10,31,59,0.06);
         }
         .auth-form-box {
           position: absolute;
           right: 0;
           width: 50%;
           height: 100%;
-          background: transparent;
+          background: hsl(var(--card));
           display: flex;
           align-items: center;
-          color: var(--via-text-body);
-          padding: 44px 40px;
+          color: hsl(var(--foreground));
+          padding: 40px;
           z-index: 1;
           transition: .6s ease-in-out 1.2s, visibility 0s 1s;
         }
-        .auth-wrap.active .auth-form-box { right: 50%; }
-        /* Only one form is ever visible. The boxes are transparent and overlap,
-           so the inactive one must be hidden — otherwise both Login and Signup
-           fields render on top of each other ("Email Email", "Senha Senha"). */
+        .auth-container.active .auth-form-box { right: 50%; }
         .auth-form-box.register { visibility: hidden; }
-        .auth-wrap.active .auth-form-box.register { visibility: visible; }
-        .auth-wrap.active .auth-form-box.login { visibility: hidden; }
+        .auth-container.active .auth-form-box.register { visibility: visible; }
         .auth-form-inner { width: 100%; }
-        .auth-form-inner h2 {
-          font-family: 'Geist', system-ui, sans-serif;
-          font-size: 1.75rem;
-          font-weight: 500;
-          letter-spacing: -0.025em;
-          color: var(--via-navy);
-          margin-bottom: 6px;
-        }
         .auth-toggle-box {
           position: absolute;
           width: 100%;
@@ -65,12 +47,12 @@ export function AuthLayout() {
           left: -250%;
           width: 300%;
           height: 100%;
-          background: linear-gradient(135deg, #0A1F3B 0%, #02162A 100%);
+          background: hsl(var(--accent-primary));
           border-radius: 150px;
           z-index: 2;
           transition: 1.8s ease-in-out;
         }
-        .auth-wrap.active .auth-toggle-box::before { left: 50%; }
+        .auth-container.active .auth-toggle-box::before { left: 50%; }
         .auth-toggle-panel {
           position: absolute;
           width: 50%;
@@ -84,72 +66,59 @@ export function AuthLayout() {
           transition: .6s ease-in-out;
           padding: 40px;
           text-align: center;
-          gap: 12px;
-        }
-        .auth-toggle-panel h2 {
-          font-family: 'Geist', system-ui, sans-serif;
-          font-size: 1.75rem;
-          font-weight: 500;
-          letter-spacing: -0.025em;
-          color: #fff;
-          margin-bottom: 0;
-        }
-        .auth-toggle-panel p {
-          font-size: 0.9375rem;
-          opacity: 0.78;
-          margin-bottom: 8px;
-          line-height: 1.5;
         }
         .auth-toggle-panel.toggle-left { left: 0; transition-delay: 1.2s; }
-        .auth-wrap.active .auth-toggle-panel.toggle-left { left: -50%; transition-delay: .6s; }
+        .auth-container.active .auth-toggle-panel.toggle-left { left: -50%; transition-delay: .6s; }
         .auth-toggle-panel.toggle-right { right: -50%; transition-delay: .6s; }
-        .auth-wrap.active .auth-toggle-panel.toggle-right { right: 0; transition-delay: 1.2s; }
+        .auth-container.active .auth-toggle-panel.toggle-right { right: 0; transition-delay: 1.2s; }
+        .auth-toggle-panel h2 { font-size: 2rem; font-weight: 700; margin-bottom: 12px; }
+        .auth-toggle-panel p { font-size: .95rem; margin-bottom: 20px; opacity: .9; }
         .auth-toggle-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 10px 28px;
+          width: 160px;
+          height: 46px;
           background: transparent;
-          border: 1px solid rgba(255,255,255,0.40);
-          border-radius: 999px;
+          border: 2px solid white;
+          border-radius: 8px;
           color: white;
-          font-family: 'Geist', system-ui, sans-serif;
-          font-size: 14px;
-          font-weight: 500;
-          letter-spacing: -0.004em;
+          font-weight: 600;
           cursor: pointer;
-          transition: border-color 180ms, background 180ms;
+          transition: background .2s;
         }
-        .auth-toggle-btn:hover {
-          border-color: rgba(255,255,255,0.65);
-          background: rgba(255,255,255,0.08);
-        }
+        .auth-toggle-btn:hover { background: rgba(255,255,255,.1); }
 
-        @media (max-width: 850px) {
-          .auth-wrap { height: calc(100vh - 40px); max-height: 680px; }
+        @media screen and (max-width: 850px) {
+          .auth-container { height: calc(100vh - 40px); max-height: 700px; }
         }
-        @media (max-width: 650px) {
-          .auth-wrap { height: 100vh; max-height: none; border-radius: 0; margin: 0; }
-          .auth-form-box { width: 100%; height: 70%; bottom: 0; right: 0; top: auto; }
-          .auth-wrap.active .auth-form-box { right: 0; bottom: 30%; }
-          .auth-toggle-box::before { left: 0; top: -270%; width: 100%; height: 300%; border-radius: 20vw; }
-          .auth-wrap.active .auth-toggle-box::before { left: 0; top: 70%; }
+        @media screen and (max-width: 650px) {
+          .auth-container { height: 100vh; max-height: none; border-radius: 0; margin: 0; }
+          .auth-form-box {
+            width: 100%;
+            height: 70%;
+            bottom: 0;
+            right: 0;
+            top: auto;
+          }
+          .auth-container.active .auth-form-box { right: 0; bottom: 30%; }
+          .auth-toggle-box::before {
+            left: 0;
+            top: -270%;
+            width: 100%;
+            height: 300%;
+            border-radius: 20vw;
+          }
+          .auth-container.active .auth-toggle-box::before { left: 0; top: 70%; }
           .auth-toggle-panel { width: 100%; height: 30%; }
           .auth-toggle-panel.toggle-left { top: 0; left: 0; }
-          .auth-wrap.active .auth-toggle-panel.toggle-left { left: 0; top: -30%; }
+          .auth-container.active .auth-toggle-panel.toggle-left { left: 0; top: -30%; }
           .auth-toggle-panel.toggle-right { right: 0; bottom: -30%; top: auto; }
-          .auth-wrap.active .auth-toggle-panel.toggle-right { bottom: 0; right: 0; }
+          .auth-container.active .auth-toggle-panel.toggle-right { bottom: 0; right: 0; }
         }
       `}</style>
-
-      <main
-        className="min-h-screen flex items-center justify-center font-sans"
-        style={{ background: "var(--via-white)" }}
-      >
-        <div className={`auth-wrap ${isActive ? "active" : ""}`}>
+      <main className="min-h-screen flex items-center justify-center bg-background font-sans">
+        <div className={`auth-container ${isActive ? "active" : ""}`}>
           <div className="auth-form-box login">
             <div className="auth-form-inner">
-              <h2>Entrar</h2>
+              <h2 className="text-2xl font-bold text-center mb-6">Entrar</h2>
               <LoginForm />
             </div>
           </div>
@@ -163,14 +132,14 @@ export function AuthLayout() {
           <div className="auth-toggle-box">
             <div className="auth-toggle-panel toggle-left">
               <h2>Olá!</h2>
-              <p>Não tem uma conta?<br />Cadastre-se para começar.</p>
+              <p>Não tem uma conta? Cadastre-se para começar.</p>
               <button type="button" className="auth-toggle-btn" onClick={() => setIsActive(true)}>
-                Criar conta
+                Cadastrar
               </button>
             </div>
             <div className="auth-toggle-panel toggle-right">
               <h2>Bem-vindo de volta!</h2>
-              <p>Já tem uma conta?<br />Faça login para continuar.</p>
+              <p>Já tem uma conta? Faça login para continuar.</p>
               <button type="button" className="auth-toggle-btn" onClick={() => setIsActive(false)}>
                 Entrar
               </button>

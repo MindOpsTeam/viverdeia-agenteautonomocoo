@@ -12,6 +12,18 @@ import PendingApprovalPage from "./pages/PendingApprovalPage";
 import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import OnboardingPage from "./pages/OnboardingPage";
+import HomePage from "./pages/HomePage";
+import ConversarPage from "./pages/ConversarPage";
+import BacklogPage from "./pages/BacklogPage";
+import ProcessosPage from "./pages/ProcessosPage";
+import RotinasPage from "./pages/RotinasPage";
+import TimeCanaisPage from "./pages/TimeCanaisPage";
+import RelatoriosPage from "./pages/RelatoriosPage";
+import CerebroPage from "./pages/CerebroPage";
+import AjudaPage from "./pages/AjudaPage";
+import {
+  DemoHome, DemoBacklog, DemoRotinas, DemoProcessos, DemoTime, DemoConversar, DemoRelatorios, DemoCerebro,
+} from "./pages/DemoPages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -54,8 +66,20 @@ const App = () => (
         <AuthProvider>
           <TriggerHealthCheck />
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={
+              <ProtectedRoute><HomePage /></ProtectedRoute>
+            } />
             <Route path="/auth" element={<AuthPage />} />
+
+            {/* Modo demonstração — público, sem autenticação */}
+            <Route path="/demo" element={<DemoHome />} />
+            <Route path="/demo/backlog" element={<DemoBacklog />} />
+            <Route path="/demo/rotinas" element={<DemoRotinas />} />
+            <Route path="/demo/processos" element={<DemoProcessos />} />
+            <Route path="/demo/time" element={<DemoTime />} />
+            <Route path="/demo/conversar" element={<DemoConversar />} />
+            <Route path="/demo/relatorios" element={<DemoRelatorios />} />
+            <Route path="/demo/cerebro" element={<DemoCerebro />} />
             <Route path="/pending-approval" element={
               <ProtectedRoute allowUnapproved><PendingApprovalPage /></ProtectedRoute>
             } />
@@ -65,9 +89,35 @@ const App = () => (
             <Route path="/dashboard" element={
               <ProtectedRoute><DashboardPage /></ProtectedRoute>
             } />
+            <Route path="/conversar" element={
+              <ProtectedRoute><ConversarPage /></ProtectedRoute>
+            } />
+            <Route path="/backlog" element={
+              <ProtectedRoute><BacklogPage /></ProtectedRoute>
+            } />
+            <Route path="/processos" element={
+              <ProtectedRoute><ProcessosPage /></ProtectedRoute>
+            } />
+            <Route path="/rotinas" element={
+              <ProtectedRoute><RotinasPage /></ProtectedRoute>
+            } />
+            <Route path="/time" element={
+              <ProtectedRoute><TimeCanaisPage /></ProtectedRoute>
+            } />
+            <Route path="/relatorios" element={
+              <ProtectedRoute><RelatoriosPage /></ProtectedRoute>
+            } />
+            <Route path="/cerebro" element={
+              <ProtectedRoute allowedRoles={["admin"]}><CerebroPage /></ProtectedRoute>
+            } />
+            <Route path="/ajuda" element={
+              <ProtectedRoute><AjudaPage /></ProtectedRoute>
+            } />
             <Route path="/settings/*" element={
               <ProtectedRoute allowedRoles={["admin"]}><SettingsPage /></ProtectedRoute>
             } />
+            <Route path="/configuracoes" element={<Navigate to="/settings" replace />} />
+            <Route path="/configuracoes/*" element={<Navigate to="/settings" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

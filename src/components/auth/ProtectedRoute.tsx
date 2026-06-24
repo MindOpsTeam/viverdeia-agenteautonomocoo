@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import type { AppRole } from "@/types/auth";
+import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 
 export function ProtectedRoute({
@@ -10,24 +11,26 @@ export function ProtectedRoute({
   allowedRoles?: AppRole[];
   allowUnapproved?: boolean;
 }) {
-  const { user, isLoading, isApproved, isActive, role, profile, signOut } = useAuth();
+  const { user, profile, isLoading, isApproved, isActive, role, signOut } = useAuth();
+
+  // Treat "session exists but profile still loading" as loading,
+  // otherwise we'd briefly see isApproved=false and bounce to /pending-approval.
+  const profileLoading = !!user && !profile;
 
   useEffect(() => {
-    if (!isLoading && user && profile && !isActive) signOut();
-  }, [isLoading, user, profile, isActive, signOut]);
+    if (!isLoading && user && !isActive) signOut();
+  }, [isLoading, user, isActive, signOut]);
 
-  if (isLoading) {
-    // Neutral, flash-free placeholder while the first session check resolves.
-    // No text/spinner so route changes never flicker.
-    return <div className="min-h-screen" style={{ background: "var(--via-bg)" }} aria-hidden />;
+  if (isLoading || profileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" /> Verificando autenticação...
+      </div>
+    );
   }
-
   if (!user) return <Navigate to="/auth" replace />;
-  // While the profile is still loading for an authenticated user, render optimistically
-  // to avoid a flash of the spinner on navigation/refresh. Approval/active checks below
-  // only run once profile is available.
-  if (profile && !isActive) return <Navigate to="/auth" replace />;
-  if (profile && !isApproved && !allowUnapproved) return <Navigate to="/pending-approval" replace />;
+  if (!isActive) return <Navigate to="/auth" replace />;
+  if (!isApproved && !allowUnapproved) return <Navigate to="/pending-approval" replace />;
   if (allowedRoles && (!role || !allowedRoles.includes(role))) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6">

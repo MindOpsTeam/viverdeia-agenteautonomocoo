@@ -24,7 +24,7 @@ export default function PendingApprovalPage() {
       setChecking(false);
       if (p?.is_approved && p?.is_active) {
         toast.success("Conta aprovada! Redirecionando...");
-        navigate("/dashboard", { replace: true });
+        navigate("/", { replace: true });
         return;
       }
     } else {
@@ -39,7 +39,7 @@ export default function PendingApprovalPage() {
         <div className="mx-auto w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center">
           <Clock className="h-8 w-8 text-warning" />
         </div>
-        <h1 className="text-2xl font-medium tracking-tight">Aguardando Aprovação</h1>
+        <h1 className="text-2xl font-semibold">Aguardando Aprovação</h1>
         <p className="text-muted-foreground">
           Olá, {profile?.full_name ?? "usuário"}! Sua conta foi criada com sucesso, mas ainda
           precisa ser aprovada por um administrador.

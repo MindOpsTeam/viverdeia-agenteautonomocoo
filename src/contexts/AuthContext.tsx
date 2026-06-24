@@ -33,55 +33,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let active = true;
-
-    // Loading is "done" the moment the first session check resolves — NOT when the
-    // profile finishes loading. The profile/role load in the background and routes
-    // render optimistically, so navigation never shows a spinner.
-    const settleLoading = () => {
-      if (active) setIsLoading(false);
-    };
-
-    // Load profile/role at most once per user id; deferred out of the auth callback
-    // per Supabase guidance (no awaiting Supabase calls inside onAuthStateChange).
-    const maybeLoadProfile = (uid: string) => {
-      if (loadedFor.current === uid) return;
-      loadedFor.current = uid;
-      setTimeout(() => {
-        if (!active) return;
-        loadProfileAndRole(uid);
-        checkActiveStatus();
-      }, 0);
-    };
-
-    const applySession = (sess: Session | null) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       const nextUser = sess?.user ?? null;
       accessTokenRef.current = sess?.access_token ?? null;
-      // Keep context references stable on TOKEN_REFRESHED / tab-focus when the user
-      // has not changed, so consumers don't re-render needlessly.
+      // Keep context stable on TOKEN_REFRESHED / tab-focus when the user has not changed.
       setSession((prev) => (prev?.user?.id === nextUser?.id ? prev : sess));
       setUser((prev) => (prev?.id === nextUser?.id ? prev : nextUser));
 
       if (!nextUser) {
         setProfile(null); setRole(null); loadedFor.current = null;
-      } else {
-        maybeLoadProfile(nextUser.id);
+      } else if (loadedFor.current !== nextUser.id) {
+        loadedFor.current = nextUser.id;
+        setTimeout(() => {
+          loadProfileAndRole(nextUser.id);
+          checkActiveStatus();
+        }, 0);
       }
-    };
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      applySession(sess);
-      // The first auth event (INITIAL_SESSION) means the session has been resolved.
-      settleLoading();
     });
 
-    // Single explicit session read as a fallback in case INITIAL_SESSION is delayed.
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      applySession(s);
-      settleLoading();
+      accessTokenRef.current = s?.access_token ?? null;
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) {
+        loadedFor.current = s.user.id;
+        loadProfileAndRole(s.user.id).finally(() => setIsLoading(false));
+        checkActiveStatus();
+      } else {
+        setIsLoading(false);
+      }
     });
 
-    return () => { active = false; sub.subscription.unsubscribe(); };
+    return () => sub.subscription.unsubscribe();
   }, [loadProfileAndRole, checkActiveStatus]);
 
   // Mark offline on unload

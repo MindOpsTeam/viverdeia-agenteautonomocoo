@@ -1,47 +1,56 @@
+import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GeneralSettings from "@/components/settings/GeneralSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
-import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
 import TeamSettings from "@/components/settings/TeamSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
 import OnboardingSettings from "@/components/settings/OnboardingSettings";
+import CredentialsSettings from "@/components/settings/CredentialsSettings";
+import AgentSettings from "@/components/settings/AgentSettings";
+import ScheduleSettings from "@/components/settings/ScheduleSettings";
+import IntegrationsSettings from "@/components/settings/IntegrationsSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "security", "integrations", "team", "demonstration", "onboarding"] as const;
+// Estrutura-alvo do /docs (BUILD §9): 4 abas.
+const VALID_TABS = ["conta", "integracoes", "credenciais", "instancia"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
+// Mantém URLs antigas (/settings/team, /settings/agent, …) funcionando após a reorg.
+const LEGACY_TABS: Record<string, Tab> = {
+  general: "conta",
+  security: "conta",
+  team: "conta",
+  demonstration: "conta",
+  onboarding: "conta",
+  integrations: "integracoes",
+  credentials: "credenciais",
+  agent: "instancia",
+  schedule: "instancia",
+};
+
 const TAB_META: Record<Tab, { title: string; description: string }> = {
-  general: {
-    title: "Geral",
-    description: "Gerencie suas informações pessoais utilizadas na plataforma.",
-  },
-  security: {
-    title: "Segurança",
-    description: "Controle como novos usuários acessam a plataforma e quais domínios são permitidos.",
-  },
-  integrations: {
-    title: "Integrações",
-    description: "Conecte serviços externos cadastrando chaves de API utilizadas pela plataforma.",
-  },
-  team: {
-    title: "Equipe",
-    description: "Aprove, gerencie permissões e acompanhe os membros da sua equipe.",
-  },
-  demonstration: {
-    title: "Demonstração",
-    description: "Popule a plataforma com dados fictícios para visualizar como ela funciona antes de usar com dados reais.",
-  },
-  onboarding: {
-    title: "Onboarding",
-    description: "Configure ou refaça o onboarding da plataforma.",
-  },
+  conta:       { title: "Conta",        description: "Conta, equipe do painel, segurança e dados de demonstração." },
+  integracoes: { title: "Integrações", description: "Notion, Discord e OpenClaw — IDs e URLs (tokens ficam em Credenciais)." },
+  credenciais: { title: "Credenciais", description: "Chaves de API do Claude, OpenClaw, Notion e Discord. Armazenadas no Supabase Vault." },
+  instancia:   { title: "Instância",   description: "Comportamento do agente (SOUL/AGENTS/USER) e horários da instância." },
 };
 
 function getTabFromPath(pathname: string): Tab {
   const segment = pathname.replace(/^\/settings\/?/, "").split("/")[0];
-  return (VALID_TABS as readonly string[]).includes(segment) ? (segment as Tab) : "general";
+  if ((VALID_TABS as readonly string[]).includes(segment)) return segment as Tab;
+  if (segment in LEGACY_TABS) return LEGACY_TABS[segment];
+  return "conta";
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      {children}
+    </div>
+  );
 }
 
 export default function SettingsPage() {
@@ -52,32 +61,51 @@ export default function SettingsPage() {
   const meta = TAB_META[activeTab];
 
   const handleChange = (value: string) => {
-    navigate(value === "general" ? "/settings" : `/settings/${value}`);
+    navigate(value === "conta" ? "/settings" : `/settings/${value}`);
   };
 
   return (
     <AppShell>
-      <div className="space-y-6">
-        <h1 className="text-3xl font-medium tracking-tight">Configurações</h1>
+      <div className="space-y-6 max-w-4xl">
+        <h1 className="text-3xl font-bold">Configurações</h1>
         <Tabs value={activeTab} onValueChange={handleChange}>
-          <TabsList>
-            <TabsTrigger value="general">Geral</TabsTrigger>
-            {isAdmin && <TabsTrigger value="security">Segurança</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="integrations">Integrações</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="team">Equipe</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="demonstration">Demonstração</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="onboarding">Onboarding</TabsTrigger>}
+          <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="conta">Conta</TabsTrigger>
+            {isAdmin && <TabsTrigger value="integracoes">Integrações</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="credenciais">Credenciais</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="instancia">Instância</TabsTrigger>}
           </TabsList>
           <div className="mt-6 mb-4">
             <h2 className="text-xl font-semibold">{meta.title}</h2>
             <p className="text-sm text-muted-foreground">{meta.description}</p>
           </div>
-          <TabsContent value="general"><GeneralSettings /></TabsContent>
-          {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
-          {isAdmin && <TabsContent value="integrations"><ApiKeysSettings /></TabsContent>}
-          {isAdmin && <TabsContent value="team"><TeamSettings /></TabsContent>}
-          {isAdmin && <TabsContent value="demonstration"><DemonstrationSettings /></TabsContent>}
-          {isAdmin && <TabsContent value="onboarding"><OnboardingSettings /></TabsContent>}
+
+          <TabsContent value="conta" className="space-y-8">
+            <GeneralSettings />
+            {isAdmin && <Section title="Segurança"><SecuritySettings /></Section>}
+            {isAdmin && <Section title="Equipe do painel"><TeamSettings /></Section>}
+            {isAdmin && <Section title="Demonstração"><DemonstrationSettings /></Section>}
+            {isAdmin && <Section title="Onboarding"><OnboardingSettings /></Section>}
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="integracoes">
+              <IntegrationsSettings />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="credenciais">
+              <CredentialsSettings />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="instancia" className="space-y-8">
+              <Section title="Comportamento do agente"><AgentSettings /></Section>
+              <Section title="Horários"><ScheduleSettings /></Section>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </AppShell>

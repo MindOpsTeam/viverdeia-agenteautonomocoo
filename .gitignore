@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Reference asset bundle (large binary)
+docs/*.zip
+
+# Pasta de assets de referência pesados (design system, fontes, bundles) — manter local, fora do repo
+docs/\[VIA\] Agente Autonomo - COO/
