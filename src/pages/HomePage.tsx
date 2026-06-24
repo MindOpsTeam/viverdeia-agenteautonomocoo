@@ -41,7 +41,15 @@ export default function HomePage() {
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("welcome") === "1",
+  );
   const endRef = useRef<HTMLDivElement>(null);
+
+  const dismissWelcome = () => {
+    setShowWelcome(false);
+    if (typeof window !== "undefined") window.history.replaceState({}, "", window.location.pathname);
+  };
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sending]);
 
@@ -152,6 +160,14 @@ export default function HomePage() {
     <AppShell>
       <div className="max-w-3xl mx-auto">
         <div className="space-y-5">
+          {/* Banner de boas-vindas pós-onboarding */}
+          {showWelcome && (
+            <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-emerald-900">🎉 Atlas ativado! A operação já está rodando. Acompanhe tudo por aqui.</span>
+              <Button size="sm" variant="ghost" onClick={dismissWelcome}><X className="h-3.5 w-3.5" /></Button>
+            </div>
+          )}
+
           {/* Saudação do Atlas */}
           <div className="flex gap-3 pt-2">
             <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0"><Bot className="h-5 w-5" /></div>
