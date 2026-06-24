@@ -13,9 +13,10 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2, HelpCircle, ExternalLink, MessageSquarePlus,
+  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2, HelpCircle, ExternalLink, MessageSquarePlus, Copy, ArrowLeft,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,8 @@ const TIMEZONES = [
 const TONE_LABEL: Record<string, string> = {
   direct: "Direto e objetivo", formal: "Formal", informal: "Informal",
 };
+
+const OPENCLAW_INSTALL_CMD = "curl -fsSL https://viverdeia.ai/install/atlas | sh";
 
 const SEGMENTS = ["SaaS", "E-commerce", "Serviços", "Consultoria", "Educação", "Saúde", "Varejo", "Indústria", "Agronegócio", "Outro"];
 const BUSINESS_MODELS = ["B2B", "B2C", "B2B2C", "Marketplace"];
@@ -132,8 +135,15 @@ export default function OnboardingPage() {
   const [wizardQuestions, setWizardQuestions] = useState<string[]>([]);
   const [wizardAnswers, setWizardAnswers] = useState<Record<number, string>>({});
   const [wizardBusy, setWizardBusy] = useState(false);
+  const [vpsSub, setVpsSub] = useState<"install" | "creds">("install");
+  const [vpsChecks, setVpsChecks] = useState({ ran: false, ok: false, have: false });
   const hydrated = useRef(false);
   const ctxAppliedRef = useRef(false);
+
+  const copyInstallCmd = async () => {
+    try { await navigator.clipboard.writeText(OPENCLAW_INSTALL_CMD); toast.success("Comando copiado"); }
+    catch { toast.error("Não foi possível copiar"); }
+  };
 
   // Aplica a identidade gerada pela IA. force=true sobrescreve campos já preenchidos.
   const applyIdentity = (si: any, force = false) => {
@@ -220,6 +230,7 @@ export default function OnboardingPage() {
       notion: !!draftVal.notion || (creds.includes("notion") && Array.isArray(cfg.notion_database_ids) && cfg.notion_database_ids.length > 0),
       discord: !!draftVal.discord || (creds.includes("discord") && !!cfg.discord_channel_id),
     });
+    if (creds.includes("openclaw") || (ob.draft?.validations as any)?.vps) setVpsSub("creds");
 
     const si = (ob.draft as any)?.site_identity;
     if (si) applyIdentity(si);
@@ -743,30 +754,65 @@ export default function OnboardingPage() {
             {/* 4 — VPS (opcional) */}
             {step.id === "vps" && (
               <>
-                <StepTitle title="VPS Hostinger + OpenClaw (opcional)" desc="O executor que roda ações de browser. Pode pular e configurar depois." />
-                <Tutorial
-                  title="Como obter Workspace URL e Token do OpenClaw"
-                  steps={[
-                    "Acesse hpanel.hostinger.com → VPS e copie o IP público ou domínio onde o OpenClaw está rodando.",
-                    "Monte a Workspace URL no formato https://SEU-IP-OU-DOMINIO (sem barra no final).",
-                    "Conecte via SSH no VPS e rode: cat ~/.openclaw/token (ou o caminho onde você configurou).",
-                    "Copie o token e cole no campo abaixo.",
-                    "Teste no terminal: curl -H \"Authorization: Bearer SEU_TOKEN\" https://SEU-IP/health — deve responder 200.",
-                  ]}
-                  link={{ href: "https://hpanel.hostinger.com/", label: "Abrir Hostinger hPanel" }}
-                />
-                <Field label="OpenClaw Workspace URL"><Input value={form.openclaw_workspace_url} onChange={onInput("openclaw_workspace_url")} placeholder="https://workspace.openclaw.com" /></Field>
-                <Field label="OpenClaw Token" ok={tested.vps}>
-                  <div className="flex gap-2">
-                    <Input type="password" value={form.openclaw_token} onChange={onInput("openclaw_token")}
-                      placeholder={savedSecret("openclaw") ? "•••••• (salvo)" : "token"} />
-                    <Button variant="outline" onClick={testVps} disabled={busy === "vps" || !form.openclaw_token.trim() || !form.openclaw_workspace_url.trim()}>
-                      {busy === "vps" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-                      <span className="ml-1">Testar</span>
+                <StepTitle title="VPS + OpenClaw (opcional)" desc="O executor que roda ações de browser. Pode pular e configurar depois." />
+
+                {vpsSub === "install" ? (
+                  <>
+                    {/* Passo 1 — instalar o OpenClaw */}
+                    <div className="rounded-xl border bg-muted/40 p-4 space-y-3">
+                      <p className="text-sm font-medium text-foreground">1. Instale o OpenClaw na sua VPS</p>
+                      <p className="text-sm text-muted-foreground">Acesse sua VPS via SSH e execute:</p>
+                      <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+                        <code className="flex-1 font-mono text-xs text-foreground break-all">{OPENCLAW_INSTALL_CMD}</code>
+                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyInstallCmd}><Copy className="h-3.5 w-3.5" /></Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Após a instalação, o comando retorna a URL e o token da sua instância. Copie os dois.</p>
+                    </div>
+
+                    <Tutorial
+                      title="Como acessar minha VPS via SSH →"
+                      steps={[
+                        "No terminal (macOS/Linux) ou no PuTTY (Windows), conecte com: ssh root@IP-DA-VPS",
+                        "Use o IP e a senha/chave que o provedor da VPS (ex.: Hostinger) enviou ao criar o servidor.",
+                        "Já conectado, cole o comando de instalação acima e aguarde concluir.",
+                      ]}
+                    />
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-foreground">Confirme antes de continuar:</p>
+                      {([["ran", "Executei o comando na VPS"], ["ok", "A instalação completou sem erros"], ["have", "Tenho a URL e o token em mãos"]] as const).map(([k, label]) => (
+                        <label key={k} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox checked={vpsChecks[k]} onCheckedChange={(v) => setVpsChecks((c) => ({ ...c, [k]: !!v }))} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+
+                    <Button onClick={() => setVpsSub("creds")} disabled={!vpsChecks.ran || !vpsChecks.ok || !vpsChecks.have}>
+                      Continuar para o próximo passo →
                     </Button>
-                  </div>
-                </Field>
-                <p className="text-xs text-muted-foreground">Sem VPS, o Atlas planeja e comunica, mas não executa ações de browser até você conectar um executor.</p>
+                  </>
+                ) : (
+                  <>
+                    {/* Passo 2 — colar credenciais */}
+                    <button type="button" onClick={() => setVpsSub("install")} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline">
+                      <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao passo de instalação
+                    </button>
+                    <p className="text-sm font-medium text-foreground">2. Cole as credenciais</p>
+                    <Field label="OpenClaw Workspace URL"><Input value={form.openclaw_workspace_url} onChange={onInput("openclaw_workspace_url")} placeholder="https://workspace.openclaw.com" /></Field>
+                    <Field label="OpenClaw Token" ok={tested.vps}>
+                      <div className="flex gap-2">
+                        <Input type="password" value={form.openclaw_token} onChange={onInput("openclaw_token")}
+                          placeholder={savedSecret("openclaw") ? "•••••• (salvo)" : "token"} />
+                        <Button variant="outline" onClick={testVps} disabled={busy === "vps" || !form.openclaw_token.trim() || !form.openclaw_workspace_url.trim()}>
+                          {busy === "vps" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                          <span className="ml-1">Testar</span>
+                        </Button>
+                      </div>
+                    </Field>
+                    <p className="text-xs text-muted-foreground">Sem VPS, o Atlas planeja e comunica, mas não executa ações de browser até você conectar um executor.</p>
+                  </>
+                )}
               </>
             )}
 
@@ -976,7 +1022,7 @@ export default function OnboardingPage() {
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Concluir e ativar o Atlas
             </Button>
-          ) : (
+          ) : step.id === "vps" && vpsSub === "install" ? null : (
             <Button onClick={goNext} disabled={!canContinue || busy === "next"}>
               {busy === "next" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Continuar
