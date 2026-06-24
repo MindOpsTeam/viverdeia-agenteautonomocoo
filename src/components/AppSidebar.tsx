@@ -53,8 +53,9 @@ export function AppSidebar() {
     { title: "Ajuda", url: "/ajuda", icon: HelpCircle, show: true },
   ].filter((i) => i.show);
 
+  // DS: inativo branco/60, ativo fundo branco/10 + branco 100%, hover branco/5.
   const activeClass =
-    "data-[active=true]:bg-[hsl(var(--accent-primary))] data-[active=true]:text-[hsl(var(--accent-foreground))] data-[active=true]:hover:bg-[hsl(var(--accent-primary-hover))] data-[active=true]:hover:text-[hsl(var(--accent-foreground))]";
+    "text-white/60 hover:bg-white/5 hover:text-white data-[active=true]:bg-white/10 data-[active=true]:text-white data-[active=true]:font-medium data-[active=true]:hover:bg-white/10 data-[active=true]:hover:text-white";
 
   return (
     <Sidebar collapsible="icon">
@@ -107,7 +108,7 @@ export function AppSidebar() {
         {!collapsed && profile && (
           <div className="px-2 py-2 text-xs text-sidebar-foreground/70 truncate">{profile.full_name}</div>
         )}
-        <Button variant="ghost" size="sm" onClick={signOut} className="justify-start">
+        <Button variant="ghost" size="sm" onClick={signOut} className="justify-start text-white/60 hover:bg-white/5 hover:text-white">
           <LogOut className="h-4 w-4" /> {!collapsed && <span className="ml-2">Sair</span>}
         </Button>
       </SidebarFooter>

@@ -76,13 +76,11 @@ export default function CerebroPage() {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as CerebroTab)}>
-          <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
-            {(["resumo", "identidade", "diretrizes", "conhecimento"] as const).map((t) => (
-              <TabsTrigger key={t} value={t}
-                className="rounded-none border-b-2 border-transparent bg-transparent px-0 pb-2.5 text-[13.5px] font-medium capitalize text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">
-                {t}
-              </TabsTrigger>
-            ))}
+          <TabsList>
+            <TabsTrigger value="resumo">Resumo</TabsTrigger>
+            <TabsTrigger value="identidade">Identidade</TabsTrigger>
+            <TabsTrigger value="diretrizes">Diretrizes</TabsTrigger>
+            <TabsTrigger value="conhecimento">Conhecimento</TabsTrigger>
           </TabsList>
 
           <TabsContent value="resumo" className="mt-6">
