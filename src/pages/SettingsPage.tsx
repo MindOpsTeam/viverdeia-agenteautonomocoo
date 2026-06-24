@@ -7,7 +7,6 @@ import SecuritySettings from "@/components/settings/SecuritySettings";
 import TeamSettings from "@/components/settings/TeamSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
 import OnboardingSettings from "@/components/settings/OnboardingSettings";
-import CredentialsSettings from "@/components/settings/CredentialsSettings";
 import AgentSettings from "@/components/settings/AgentSettings";
 import ScheduleSettings from "@/components/settings/ScheduleSettings";
 import IntegrationsSettings from "@/components/settings/IntegrationsSettings";
@@ -34,7 +33,7 @@ const LEGACY_TABS: Record<string, Tab> = {
 const TAB_META: Record<Tab, { title: string; description: string }> = {
   conta:        { title: "Conta",        description: "Dados da empresa, fuso horário, tema e onboarding." },
   equipe:       { title: "Equipe",       description: "Usuários do painel, permissões e status." },
-  integracoes:  { title: "Integrações & Credenciais", description: "Notion, Discord e OpenClaw (IDs/URLs) e as chaves de API guardadas no Supabase Vault." },
+  integracoes:  { title: "Integrações", description: "Conecte e gerencie cada ferramenta — token, configuração e tutorial num só lugar." },
   instancia:    { title: "Instância",   description: "Comportamento do agente (SOUL/AGENTS/USER) e horários da instância." },
   seguranca:    { title: "Segurança",   description: "Restrição de cadastro por domínio e configurações de acesso." },
   demonstracao: { title: "Demonstração", description: "Carregar ou remover dados de demonstração." },
@@ -75,7 +74,7 @@ export default function SettingsPage() {
           <TabsList className="w-full flex-wrap">
             <TabsTrigger value="conta">Conta</TabsTrigger>
             {isAdmin && <TabsTrigger value="equipe">Equipe</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="integracoes">Integrações &amp; Credenciais</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="integracoes">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger value="instancia">Instância</TabsTrigger>}
             {isAdmin && <TabsTrigger value="seguranca">Segurança</TabsTrigger>}
             {isAdmin && <TabsTrigger value="demonstracao">Demonstração</TabsTrigger>}
@@ -97,10 +96,8 @@ export default function SettingsPage() {
           )}
 
           {isAdmin && (
-            <TabsContent value="integracoes" className="space-y-8">
-              <Section title="Integrações"><IntegrationsSettings /></Section>
-              <div className="border-t border-border" />
-              <Section title="Credenciais"><CredentialsSettings /></Section>
+            <TabsContent value="integracoes">
+              <IntegrationsSettings />
             </TabsContent>
           )}
 

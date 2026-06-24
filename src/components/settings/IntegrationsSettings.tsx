@@ -1,260 +1,416 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Copy, Loader2, Plug, Plus, Save, Trash2 } from "lucide-react";
+  CheckCircle2, ChevronDown, Copy, ExternalLink, HelpCircle, Loader2, Plug, Plus, Trash2, XCircle,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const sb = () => supabase as any;
-
 const DISCORD_INTERACTIONS_URL = "https://pmrzuqocgefrlookjnxh.supabase.co/functions/v1/discord-webhook";
+const OPENCLAW_INSTALL_CMD = "curl -fsSL https://viverdeia.ai/install/atlas | sh";
 
+type Svc = "anthropic" | "notion" | "discord" | "github" | "openclaw";
 type NotionType = "backlog" | "knowledge" | "ignore";
 type NotionDb = { database_id: string; name: string; type: NotionType };
+type Val = { ok: boolean; error?: string };
 
-type IntegrationsForm = {
-  openclaw_workspace_url: string;
-  discord_server_id: string;
-  discord_channel_id: string;
-  discord_public_key: string;
+const TUTORIALS: Record<Svc, { steps: React.ReactNode[]; link?: { href: string; label: string } }> = {
+  anthropic: {
+    steps: [
+      "Acesse console.anthropic.com e faça login (ou crie a conta).",
+      "Menu lateral → API Keys → Create Key. Dê um nome (ex.: Atlas) e confirme.",
+      "Garanta créditos/billing em Plans & Billing.",
+      "Copie a chave (sk-ant-…), cole acima e salve. Aparece só uma vez.",
+    ],
+    link: { href: "https://console.anthropic.com/settings/keys", label: "Abrir Anthropic Console" },
+  },
+  notion: {
+    steps: [
+      "Abra notion.so/profile/integrations → New integration. Nomeie (ex.: Atlas) e salve.",
+      "Copie o Internal Integration Secret (secret_… ou ntn_…) e cole acima.",
+      "Em cada database: \"…\" → Connections → adicione a integração Atlas.",
+      "Clique \"Conectar ao Notion\" para listar os databases e definir o tipo de cada um.",
+    ],
+    link: { href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" },
+  },
+  discord: {
+    steps: [
+      "discord.com/developers/applications → New Application (ex.: Atlas).",
+      "Aba Bot → Reset Token → copie o Bot Token (ative Message Content Intent).",
+      "Aba General Information → copie a Public Key.",
+      "OAuth2 → URL Generator → bot + Manage Channels/Send Messages → convide o bot no servidor.",
+      "Ative o Modo Desenvolvedor no Discord → botão direito no servidor → Copiar ID (Server ID).",
+    ],
+    link: { href: "https://discord.com/developers/applications", label: "Abrir Discord Developer Portal" },
+  },
+  github: {
+    steps: [
+      "Crie um repositório PRIVADO em github.com/new (ex.: atlas-skills, inicialize com README).",
+      "github.com/settings/tokens → Generate new token → Fine-grained token.",
+      "Repository access: Only select repositories → selecione o repo. Permissions: Contents = Read and write.",
+      "Generate token, copie (github_pat_…) e cole acima com a URL do repo.",
+    ],
+    link: { href: "https://github.com/settings/tokens", label: "Criar token no GitHub" },
+  },
+  openclaw: {
+    steps: [
+      "Acesse sua VPS via SSH: ssh root@IP-DA-VPS (terminal ou PuTTY).",
+      "Execute o comando de instalação acima e aguarde concluir.",
+      "O comando retorna a URL e o token da instância — copie os dois e cole acima.",
+    ],
+  },
 };
 
-const empty: IntegrationsForm = {
-  openclaw_workspace_url: "",
-  discord_server_id: "",
-  discord_channel_id: "",
-  discord_public_key: "",
-};
+function Tutorial({ label, svc }: { label: string; svc: Svc }) {
+  const t = TUTORIALS[svc];
+  return (
+    <Collapsible className="rounded-md border border-border bg-muted/30">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-medium hover:bg-muted/50">
+        <HelpCircle className="h-3.5 w-3.5" /> {label}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
+        <ol className="list-decimal space-y-1 pl-5">{t.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+        {t.link && (
+          <a href={t.link.href} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-primary hover:underline">
+            <ExternalLink className="h-3 w-3" /> {t.link.label}
+          </a>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function StatusBadge({ status }: { status: "active" | "error" | "empty" }) {
+  if (status === "active") return <Badge className="bg-success text-white hover:bg-success">✅ Ativo</Badge>;
+  if (status === "error") return <Badge variant="destructive">⚠️ Erro</Badge>;
+  return <Badge variant="secondary">⚪ Vazio</Badge>;
+}
 
 export default function IntegrationsSettings() {
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [form, setForm] = useState<IntegrationsForm>(empty);
-  const [notionDbs, setNotionDbs] = useState<NotionDb[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [configured, setConfigured] = useState<Set<Svc>>(new Set());
+  const [validations, setValidations] = useState<Record<string, Val>>({});
+  const [expanded, setExpanded] = useState<Set<Svc>>(new Set());
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState<NotionDb>({ database_id: "", name: "", type: "backlog" });
+  // tokens novos (a salvar) por serviço
+  const [token, setToken] = useState<Record<Svc, string>>({ anthropic: "", notion: "", discord: "", github: "", openclaw: "" });
+  // campos não-secretos (agent_config)
+  const [openclawUrl, setOpenclawUrl] = useState("");
+  const [githubRepoUrl, setGithubRepoUrl] = useState("");
+  const [discordServerId, setDiscordServerId] = useState("");
+  const [discordChannelId, setDiscordChannelId] = useState("");
+  const [discordPublicKey, setDiscordPublicKey] = useState("");
+  const [notionDbs, setNotionDbs] = useState<NotionDb[]>([]);
+  const [addDbId, setAddDbId] = useState("");
 
   useEffect(() => {
     (async () => {
       const { data: company } = await sb().from("companies").select("id").maybeSingle();
       if (!company) { setLoading(false); return; }
       setCompanyId(company.id);
-      const { data: cfg } = await sb().from("agent_config")
-        .select("openclaw_workspace_url, notion_database_id, notion_database_ids, discord_server_id, discord_channel_id, discord_public_key")
-        .eq("company_id", company.id).maybeSingle();
-      if (cfg) {
-        setForm({
-          openclaw_workspace_url: cfg.openclaw_workspace_url ?? "",
-          discord_server_id: cfg.discord_server_id ?? "",
-          discord_channel_id: cfg.discord_channel_id ?? "",
-          discord_public_key: cfg.discord_public_key ?? "",
-        });
-        const list = Array.isArray(cfg.notion_database_ids) ? (cfg.notion_database_ids as NotionDb[]) : [];
-        if (list.length) setNotionDbs(list);
-        else if (cfg.notion_database_id) setNotionDbs([{ database_id: cfg.notion_database_id, name: "(database atual)", type: "backlog" }]);
-      }
+      const [{ data: creds }, { data: cfg }] = await Promise.all([
+        sb().from("credentials").select("service").eq("company_id", company.id),
+        sb().from("agent_config")
+          .select("openclaw_workspace_url, github_repo_url, discord_server_id, discord_channel_id, discord_public_key, notion_database_ids")
+          .eq("company_id", company.id).maybeSingle(),
+      ]);
+      setConfigured(new Set((creds ?? []).map((c: any) => c.service)));
+      setOpenclawUrl(cfg?.openclaw_workspace_url ?? "");
+      setGithubRepoUrl(cfg?.github_repo_url ?? "");
+      setDiscordServerId(cfg?.discord_server_id ?? "");
+      setDiscordChannelId(cfg?.discord_channel_id ?? "");
+      setDiscordPublicKey(cfg?.discord_public_key ?? "");
+      setNotionDbs(Array.isArray(cfg?.notion_database_ids) ? cfg.notion_database_ids : []);
       setLoading(false);
     })();
   }, []);
 
-  const update = <K extends keyof IntegrationsForm>(k: K) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const toggle = (svc: Svc) => setExpanded((s) => { const n = new Set(s); n.has(svc) ? n.delete(svc) : n.add(svc); return n; });
+  const setTok = (svc: Svc, v: string) => setToken((t) => ({ ...t, [svc]: v }));
+  const patchConfig = (patch: Record<string, unknown>) => companyId && sb().from("agent_config").update(patch).eq("company_id", companyId);
 
-  const setType = (id: string, type: NotionType) =>
-    setNotionDbs((prev) => prev.map((d) => (d.database_id === id ? { ...d, type } : d)));
-  const removeDb = (id: string) => setNotionDbs((prev) => prev.filter((d) => d.database_id !== id));
+  const storeCred = async (svc: Svc, value: string): Promise<boolean> => {
+    if (!companyId || !value.trim()) return false;
+    const { error } = await sb().rpc("store_credential", { p_company_id: companyId, p_service: svc, p_value: value });
+    if (error) { toast.error(`Falha ao salvar: ${error.message}`); return false; }
+    setConfigured((s) => new Set([...s, svc]));
+    setTok(svc, "");
+    return true;
+  };
 
-  const addDatabase = () => {
-    const id = addForm.database_id.trim();
-    if (!id) { toast.error("Informe o Database ID."); return; }
-    if (notionDbs.some((d) => d.database_id === id)) { toast.error("Esse database já está na lista."); return; }
-    setNotionDbs((prev) => [...prev, { database_id: id, name: addForm.name.trim() || id, type: addForm.type }]);
-    setAddForm({ database_id: "", name: "", type: "backlog" });
-    setAddOpen(false);
+  // Testa o serviço; usa o token redigitado ou lê o salvo no Vault.
+  const test = async (svc: Svc) => {
+    if (!companyId) return;
+    setBusy(`test-${svc}`);
+    try {
+      let tk = token[svc].trim();
+      if (!tk && configured.has(svc)) {
+        const { data } = await sb().rpc("read_credential", { p_company_id: companyId, p_service: svc });
+        tk = (data as string) ?? "";
+      }
+      const checks: any[] = [];
+      if (svc === "anthropic") checks.push({ service: "anthropic", anthropic_key: tk });
+      if (svc === "notion") checks.push({ service: "notion", notion_token: tk, notion_database_id: (notionDbs.find((d) => d.type === "backlog") ?? notionDbs[0])?.database_id ?? "" });
+      if (svc === "discord") checks.push({ service: "discord", discord_bot_token: tk, discord_channel_id: discordChannelId });
+      if (svc === "github") checks.push({ service: "github", github_pat: tk, github_repo_url: githubRepoUrl });
+      if (svc === "openclaw") checks.push({ service: "openclaw", openclaw_workspace_url: openclawUrl, openclaw_token: tk });
+      const { data, error } = await supabase.functions.invoke("validate-credentials", { body: { checks } });
+      if (error) { toast.error("Falha na validação"); return; }
+      const r = (data as any)?.results?.[svc] ?? { ok: false, error: "Sem resposta" };
+      setValidations((v) => ({ ...v, [svc]: r }));
+      toast[r.ok ? "success" : "error"](r.ok ? "Conexão OK" : (r.error ?? "Falha"));
+    } catch (e: any) { toast.error(e?.message ?? "Erro ao testar"); }
+    finally { setBusy(null); }
   };
 
   const connectNotion = async () => {
     if (!companyId) return;
-    setConnecting(true);
+    setBusy("connect-notion");
     try {
-      const { data: token } = await sb().rpc("read_credential", { p_company_id: companyId, p_service: "notion" });
-      if (!token) { toast.error("Token do Notion não encontrado. Configure-o em Credenciais primeiro."); return; }
-      const { data, error } = await supabase.functions.invoke("setup-notion-database", { body: { action: "list", notion_token: token } });
-      if (error) { toast.error("Falha ao conectar no Notion (rede)"); return; }
-      const res = data as any;
-      if (!res?.ok) { toast.error(res?.error ?? "Falha no Notion"); return; }
-      const existing = new Map(notionDbs.map((d) => [d.database_id, d]));
-      const fromApi: NotionDb[] = (res.databases ?? []).map((d: any) => ({
-        database_id: d.database_id, name: d.name,
-        type: (existing.get(d.database_id)?.type as NotionType) ?? "ignore",
-      }));
+      let tk = token.notion.trim();
+      if (!tk && configured.has("notion")) {
+        const { data } = await sb().rpc("read_credential", { p_company_id: companyId, p_service: "notion" });
+        tk = (data as string) ?? "";
+      }
+      if (!tk) { toast.error("Informe o token do Notion (ou salve-o primeiro)."); return; }
+      const { data, error } = await supabase.functions.invoke("setup-notion-database", { body: { action: "list", notion_token: tk } });
+      if (error || !(data as any)?.ok) { toast.error((data as any)?.error ?? "Falha ao conectar no Notion"); return; }
+      const existing = new Map(notionDbs.map((d) => [d.database_id, d.type]));
+      const fromApi: NotionDb[] = ((data as any).databases ?? []).map((d: any) => ({ database_id: d.database_id, name: d.name, type: (existing.get(d.database_id) as NotionType) ?? "ignore" }));
       const extra = notionDbs.filter((d) => !fromApi.some((x) => x.database_id === d.database_id));
       setNotionDbs([...fromApi, ...extra]);
-      toast.success(`${fromApi.length} database(s) encontrados no Notion.`);
-    } catch (e: any) { toast.error(e?.message ?? "Erro ao conectar"); }
-    finally { setConnecting(false); }
+      toast.success(`${fromApi.length} database(s) encontrados.`);
+    } catch (e: any) { toast.error(e?.message ?? "Erro no Notion"); }
+    finally { setBusy(null); }
   };
 
-  const save = async () => {
-    if (!companyId) return;
-    setSaving(true);
+  const saveNotion = async () => {
+    setBusy("save-notion");
+    if (token.notion.trim()) await storeCred("notion", token.notion);
     const backlogFirst = notionDbs.find((d) => d.type === "backlog") ?? notionDbs.find((d) => d.type !== "ignore");
-    const { error } = await sb().from("agent_config").update({
-      ...form,
-      notion_database_ids: notionDbs,
-      notion_database_id: backlogFirst?.database_id ?? null,
-    }).eq("company_id", companyId);
-    setSaving(false);
-    if (error) { toast.error(`Falha ao salvar: ${error.message}`); return; }
-    toast.success("Integrações atualizadas");
+    await patchConfig({ notion_database_ids: notionDbs, notion_database_id: backlogFirst?.database_id ?? null });
+    setBusy(null);
+    toast.success("Notion salvo");
   };
 
-  const copyInteractionsUrl = async () => {
-    try { await navigator.clipboard.writeText(DISCORD_INTERACTIONS_URL); toast.success("URL copiada"); }
+  const saveDiscord = async () => {
+    setBusy("save-discord");
+    if (token.discord.trim()) await storeCred("discord", token.discord);
+    await patchConfig({ discord_server_id: discordServerId, discord_channel_id: discordChannelId, discord_public_key: discordPublicKey || null });
+    setBusy(null);
+    toast.success("Discord salvo");
+  };
+
+  const saveGithub = async () => {
+    setBusy("save-github");
+    if (token.github.trim()) await storeCred("github", token.github);
+    await patchConfig({ github_repo_url: githubRepoUrl });
+    setBusy(null);
+    toast.success("GitHub salvo");
+  };
+
+  const saveOpenclaw = async () => {
+    setBusy("save-openclaw");
+    if (token.openclaw.trim()) await storeCred("openclaw", token.openclaw);
+    await patchConfig({ openclaw_workspace_url: openclawUrl, vps_url: openclawUrl });
+    setBusy(null);
+    toast.success("OpenClaw salvo");
+  };
+
+  const statusOf = (svc: Svc, ready: boolean): "active" | "error" | "empty" => {
+    if (validations[svc]?.ok === false) return "error";
+    if (configured.has(svc) && ready) return "active";
+    if (configured.has(svc)) return "active";
+    return "empty";
+  };
+
+  const copyInstall = async () => {
+    try { await navigator.clipboard.writeText(OPENCLAW_INSTALL_CMD); toast.success("Comando copiado"); }
     catch { toast.error("Não foi possível copiar"); }
   };
 
   if (loading) return <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</div>;
   if (!companyId) return <div className="text-sm text-muted-foreground">Conclua o onboarding primeiro.</div>;
 
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">OpenClaw</CardTitle>
-          <CardDescription>Workspace onde o agente executa.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Label>Workspace URL</Label>
-          <Input value={form.openclaw_workspace_url} onChange={update("openclaw_workspace_url")} placeholder="https://workspace.openclaw.com" />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Notion</CardTitle>
-          <CardDescription>Databases que o Atlas monitora. Apenas IDs — o token fica em Credenciais.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {notionDbs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum database conectado. Conecte ao Notion ou adicione manualmente.</p>
-          ) : (
-            <div className="rounded-lg border divide-y">
-              {notionDbs.map((db) => (
-                <div key={db.database_id} className="flex items-center justify-between gap-2 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-sm truncate">{db.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{db.database_id}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Select value={db.type} onValueChange={(v) => setType(db.database_id, v as NotionType)}>
-                      <SelectTrigger className="w-36 h-8"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="backlog">Backlog</SelectItem>
-                        <SelectItem value="knowledge">Conhecimento</SelectItem>
-                        <SelectItem value="ignore">Ignorar</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeDb(db.database_id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={connectNotion} disabled={connecting}>
-              {connecting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plug className="h-4 w-4 mr-1" />}
-              Conectar ao Notion
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Adicionar database
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Discord</CardTitle>
-          <CardDescription>Server, canal, chave pública e o endpoint de interações dos slash commands.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label>Server ID</Label>
-            <Input value={form.discord_server_id} onChange={update("discord_server_id")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Channel ID</Label>
-            <Input value={form.discord_channel_id} onChange={update("discord_channel_id")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Public Key (verificação de interações)</Label>
-            <Input value={form.discord_public_key} onChange={update("discord_public_key")} placeholder="hex da public key do app Discord" />
-          </div>
-          <div className="space-y-2">
-            <Label>Interactions Endpoint URL</Label>
-            <div className="flex gap-2">
-              <Input readOnly value={DISCORD_INTERACTIONS_URL} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-              <Button variant="outline" size="icon" onClick={copyInteractionsUrl}><Copy className="h-4 w-4" /></Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Configure este URL no Discord Developer Portal → seu app → <strong>Interactions Endpoint URL</strong>.
-              Salve a Public Key acima antes de configurar (o Discord faz um PING de verificação ao salvar).
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-end">
-        <Button onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-          Salvar integrações
-        </Button>
+  // Funções (não componentes) para não remontar os inputs a cada render (preserva o foco).
+  const tokenField = (svc: Svc, placeholder: string) => (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{configured.has(svc) ? "Trocar chave" : "Chave / token"}</Label>
+      <Input type="password" value={token[svc]} onChange={(e) => setTok(svc, e.target.value)}
+        placeholder={configured.has(svc) ? "•••••• (salvo) — cole para substituir" : placeholder} />
+    </div>
+  );
+  const valLine = (svc: Svc) => {
+    const s = validations[svc];
+    return s ? (
+      <div className={`flex items-center gap-2 text-xs ${s.ok ? "text-success" : "text-destructive"}`}>
+        {s.ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}{s.ok ? "Conexão OK" : s.error}
       </div>
+    ) : null;
+  };
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Adicionar database do Notion</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>Database ID</Label>
-              <Input value={addForm.database_id} onChange={(e) => setAddForm((p) => ({ ...p, database_id: e.target.value }))} placeholder="hash de 32 caracteres" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nome (opcional)</Label>
-              <Input value={addForm.name} onChange={(e) => setAddForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ex.: Backlog de Marketing" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select value={addForm.type} onValueChange={(v) => setAddForm((p) => ({ ...p, type: v as NotionType }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="backlog">Backlog</SelectItem>
-                  <SelectItem value="knowledge">Conhecimento</SelectItem>
-                  <SelectItem value="ignore">Ignorar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setAddOpen(false)}>Cancelar</Button>
-            <Button onClick={addDatabase}>Adicionar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+  const notionActive = configured.has("notion");
+  const discordReady = configured.has("discord") && !!discordChannelId;
+  const openclawReady = configured.has("openclaw") && !!openclawUrl.trim();
+
+  const cards: { svc: Svc; icon: string; title: string; desc: string; summary: string; action: string; ready: boolean }[] = [
+    { svc: "anthropic", icon: "🔮", title: "Anthropic", desc: "Motor de IA do Atlas", summary: configured.has("anthropic") ? "API Key configurada" : "Sem chave", action: configured.has("anthropic") ? "Trocar" : "Configurar", ready: true },
+    { svc: "notion", icon: "📓", title: "Notion", desc: "Backlog e base de conhecimento", summary: notionDbs.length ? `${notionDbs.filter((d) => d.type !== "ignore").length} database(s) monitorado(s)` : "Sem databases", action: "Gerenciar", ready: notionActive },
+    { svc: "discord", icon: "🎮", title: "Discord", desc: "Canal de comandos e relatórios", summary: discordServerId ? `Servidor: ${discordServerId}` : "Sem servidor", action: "Configurar", ready: discordReady },
+    { svc: "github", icon: "🐙", title: "GitHub", desc: "Versionamento de skills", summary: githubRepoUrl || "Não configurado", action: "Configurar", ready: configured.has("github") },
+    { svc: "openclaw", icon: "🖥️", title: "VPS + OpenClaw", desc: "Execução de rotinas no browser", summary: openclawUrl || "Não instalado", action: configured.has("openclaw") ? "Configurar" : "Instalar e configurar", ready: openclawReady },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {cards.map((c) => {
+        const open = expanded.has(c.svc);
+        return (
+          <Card key={c.svc}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xl leading-none">{c.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">{c.title}</span>
+                    <StatusBadge status={statusOf(c.svc, c.ready)} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{c.desc} · <span className="text-foreground/70">{c.summary}</span></p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => toggle(c.svc)}>
+                  {c.action} <ChevronDown className={`h-3.5 w-3.5 ml-1 transition-transform ${open ? "rotate-180" : ""}`} />
+                </Button>
+              </div>
+
+              {open && (
+                <div className="mt-4 space-y-3 border-t pt-4">
+                  {/* Anthropic */}
+                  {c.svc === "anthropic" && (
+                    <>
+                      {tokenField("anthropic", "sk-ant-...")}
+                      {valLine("anthropic")}
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => test("anthropic")} disabled={busy === "test-anthropic"}>{busy === "test-anthropic" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar</Button>
+                        <Button size="sm" onClick={() => storeCred("anthropic", token.anthropic).then((ok) => ok && toast.success("Anthropic salvo"))} disabled={!token.anthropic.trim()}>Salvar</Button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Notion */}
+                  {c.svc === "notion" && (
+                    <>
+                      {tokenField("notion", "secret_... ou ntn_...")}
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={connectNotion} disabled={busy === "connect-notion"}>{busy === "connect-notion" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plug className="h-3 w-3 mr-1" />}Conectar ao Notion</Button>
+                        <Button variant="outline" size="sm" onClick={() => test("notion")} disabled={busy === "test-notion"}>{busy === "test-notion" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar</Button>
+                      </div>
+                      {notionDbs.length > 0 && (
+                        <div className="rounded-lg border divide-y">
+                          {notionDbs.map((db) => (
+                            <div key={db.database_id} className="flex items-center justify-between gap-2 px-3 py-2">
+                              <span className="text-sm truncate">{db.name}</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Select value={db.type} onValueChange={(v) => setNotionDbs((arr) => arr.map((d) => d.database_id === db.database_id ? { ...d, type: v as NotionType } : d))}>
+                                  <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="backlog">Backlog</SelectItem>
+                                    <SelectItem value="knowledge">Conhecimento</SelectItem>
+                                    <SelectItem value="ignore">Ignorar</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setNotionDbs((arr) => arr.filter((d) => d.database_id !== db.database_id))}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Input value={addDbId} onChange={(e) => setAddDbId(e.target.value)} placeholder="Adicionar Database ID manualmente" className="h-8" />
+                        <Button size="sm" variant="outline" onClick={() => { const id = addDbId.trim(); if (!id || notionDbs.some((d) => d.database_id === id)) return; setNotionDbs((a) => [...a, { database_id: id, name: id, type: "backlog" }]); setAddDbId(""); }}><Plus className="h-3.5 w-3.5" /></Button>
+                      </div>
+                      {valLine("notion")}
+                      <div className="flex justify-end"><Button size="sm" onClick={saveNotion} disabled={busy === "save-notion"}>{busy === "save-notion" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button></div>
+                    </>
+                  )}
+
+                  {/* Discord */}
+                  {c.svc === "discord" && (
+                    <>
+                      {tokenField("discord", "Bot token")}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5"><Label className="text-xs">Server (Guild) ID</Label><Input value={discordServerId} onChange={(e) => setDiscordServerId(e.target.value)} /></div>
+                        <div className="space-y-1.5"><Label className="text-xs">Channel ID</Label><Input value={discordChannelId} onChange={(e) => setDiscordChannelId(e.target.value)} /></div>
+                      </div>
+                      <div className="space-y-1.5"><Label className="text-xs">Public Key</Label><Input value={discordPublicKey} onChange={(e) => setDiscordPublicKey(e.target.value)} placeholder="para o Interactions Endpoint" /></div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Interactions Endpoint URL</Label>
+                        <div className="flex gap-2">
+                          <Input readOnly value={DISCORD_INTERACTIONS_URL} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                          <Button variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(DISCORD_INTERACTIONS_URL).then(() => toast.success("URL copiada"))}><Copy className="h-4 w-4" /></Button>
+                        </div>
+                      </div>
+                      {valLine("discord")}
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => test("discord")} disabled={busy === "test-discord"}>{busy === "test-discord" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar</Button>
+                        <Button size="sm" onClick={saveDiscord} disabled={busy === "save-discord"}>{busy === "save-discord" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* GitHub */}
+                  {c.svc === "github" && (
+                    <>
+                      <div className="space-y-1.5"><Label className="text-xs">URL do repositório</Label><Input value={githubRepoUrl} onChange={(e) => setGithubRepoUrl(e.target.value)} placeholder="https://github.com/empresa/atlas-skills" /></div>
+                      {tokenField("github", "github_pat_...")}
+                      {valLine("github")}
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => test("github")} disabled={busy === "test-github"}>{busy === "test-github" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar</Button>
+                        <Button size="sm" onClick={saveGithub} disabled={busy === "save-github"}>{busy === "save-github" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* VPS + OpenClaw */}
+                  {c.svc === "openclaw" && (
+                    <>
+                      {!openclawReady && (
+                        <div className="rounded-lg border bg-muted/40 p-3 space-y-2 text-xs text-muted-foreground">
+                          <p>Para usar o OpenClaw, instale na sua VPS:</p>
+                          <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+                            <code className="flex-1 font-mono text-foreground break-all">{OPENCLAW_INSTALL_CMD}</code>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyInstall}><Copy className="h-3.5 w-3.5" /></Button>
+                          </div>
+                          <p>Após instalar, cole a URL e o token abaixo.</p>
+                        </div>
+                      )}
+                      <div className="space-y-1.5"><Label className="text-xs">URL da instância</Label><Input value={openclawUrl} onChange={(e) => setOpenclawUrl(e.target.value)} placeholder="https://workspace.openclaw.com" /></div>
+                      {tokenField("openclaw", "Token do OpenClaw")}
+                      {valLine("openclaw")}
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => test("openclaw")} disabled={busy === "test-openclaw"}>{busy === "test-openclaw" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar</Button>
+                        <Button size="sm" onClick={saveOpenclaw} disabled={busy === "save-openclaw"}>{busy === "save-openclaw" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button>
+                      </div>
+                    </>
+                  )}
+
+                  <Tutorial svc={c.svc} label={c.svc === "openclaw" ? "Como instalar" : c.svc === "anthropic" ? "Como obter" : "Como configurar"} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
