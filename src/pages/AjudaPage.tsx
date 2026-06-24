@@ -5,7 +5,7 @@ import { Search, Info, AlertTriangle } from "lucide-react";
 
 function InfoBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+    <div className="flex gap-2 rounded-lg border border-info/30 bg-info/10 p-3 text-sm text-info">
       <Info className="h-4 w-4 mt-0.5 shrink-0" /> <div>{children}</div>
     </div>
   );
@@ -13,7 +13,7 @@ function InfoBox({ children }: { children: React.ReactNode }) {
 
 function WarnBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+    <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /> <div>{children}</div>
     </div>
   );
