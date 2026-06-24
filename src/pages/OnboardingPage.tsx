@@ -703,14 +703,27 @@ export default function OnboardingPage() {
                 <StepTitle title="GitHub (opcional)" desc="Repositório privado onde o Atlas versiona as skills compiladas. Pode pular e configurar depois." />
                 <Tutorial
                   title="Como obter Repo URL e Personal Access Token"
-                  steps={[
-                    "Crie (ou escolha) um repositório privado em github.com/new — copie a URL completa (ex.: https://github.com/empresa/atlas-skills).",
-                    "No GitHub, clique na sua foto → Settings → Developer settings (no rodapé).",
-                    "Vá em Personal access tokens → Fine-grained tokens → Generate new token.",
-                    "Em \"Repository access\" selecione apenas o repositório acima.",
-                    "Em \"Repository permissions\" dê Contents: Read and write e Metadata: Read. Gere e copie o token github_pat_...",
+                  sections={[
+                    {
+                      heading: "Como obter o PAT (Fine-grained token)",
+                      steps: [
+                        "Acesse github.com/settings/tokens.",
+                        "Clique em \"Generate new token\" → \"Fine-grained token\".",
+                        "Configure: Token name = atlas-[nome-da-empresa]; Expiration = 1 year; Repository access = Only select repositories → selecione o repo que vai usar.",
+                        "Em Permissions → Repository permissions, ative: Contents = Read and write; Metadata = Read only (já vem automático).",
+                        "Clique \"Generate token\" e copie imediatamente — aparece apenas uma vez (começa com github_pat_).",
+                      ],
+                      link: { href: "https://github.com/settings/tokens", label: "Abrir tokens do GitHub" },
+                    },
+                    {
+                      heading: "Como obter a Repo URL",
+                      steps: [
+                        "Crie um repositório PRIVADO em github.com/new — nome sugerido: atlas-skills, marque \"Private\" e inicialize com um README.",
+                        "Copie a URL no formato https://github.com/seu-usuario/nome-do-repo.",
+                      ],
+                      link: { href: "https://github.com/new", label: "Criar repositório" },
+                    },
                   ]}
-                  link={{ href: "https://github.com/settings/personal-access-tokens/new", label: "Criar token no GitHub" }}
                 />
                 <Field label="Repo URL"><Input value={form.github_repo_url} onChange={onInput("github_repo_url")} placeholder="https://github.com/empresa/atlas-skills" /></Field>
                 <Field label="PAT (fine-grained)" ok={tested.github}>
@@ -1032,22 +1045,36 @@ function Chips({ options, selected, onToggle, multi }: {
   );
 }
 
-function Tutorial({ title, steps, link }: { title: string; steps: React.ReactNode[]; link?: { href: string; label: string } }) {
+type TutorialLink = { href: string; label: string };
+type TutorialSection = { heading?: string; steps: React.ReactNode[]; link?: TutorialLink };
+
+function Tutorial({ title, steps, link, sections }: {
+  title: string;
+  steps?: React.ReactNode[];
+  link?: TutorialLink;
+  sections?: TutorialSection[];
+}) {
+  const groups: TutorialSection[] = sections ?? (steps ? [{ steps, link }] : []);
   return (
     <Collapsible className="rounded-lg border border-dashed bg-muted/30">
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground">
         <HelpCircle className="h-3.5 w-3.5" />
         <span>{title}</span>
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-3 pt-1 text-xs text-muted-foreground">
-        <ol className="list-decimal space-y-1 pl-4">
-          {steps.map((s, i) => <li key={i}>{s}</li>)}
-        </ol>
-        {link && (
-          <a href={link.href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-primary hover:underline">
-            <ExternalLink className="h-3 w-3" /> {link.label}
-          </a>
-        )}
+      <CollapsibleContent className="px-3 pb-3 pt-1 text-xs text-muted-foreground space-y-3">
+        {groups.map((g, gi) => (
+          <div key={gi} className="space-y-1">
+            {g.heading && <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/70">{g.heading}</p>}
+            <ol className="list-decimal space-y-1 pl-4">
+              {g.steps.map((s, i) => <li key={i}>{s}</li>)}
+            </ol>
+            {g.link && (
+              <a href={g.link.href} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-primary hover:underline">
+                <ExternalLink className="h-3 w-3" /> {g.link.label}
+              </a>
+            )}
+          </div>
+        ))}
       </CollapsibleContent>
     </Collapsible>
   );
