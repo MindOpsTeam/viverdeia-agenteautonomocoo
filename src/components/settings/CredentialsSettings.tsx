@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Loader2, XCircle, HelpCircle, ExternalLink } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle, HelpCircle, ExternalLink, Copy } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -316,6 +316,23 @@ function GithubVpsSection({ companyId }: { companyId: string }) {
     </div>
   ) : null;
 
+  // Contexto de instalação do OpenClaw (mesmo do onboarding).
+  const openclawConfigured = hasVps || !!vpsUrl.trim();
+  const copyInstall = async () => {
+    try { await navigator.clipboard.writeText("curl -fsSL https://viverdeia.ai/install/atlas | sh"); toast.success("Comando copiado"); }
+    catch { toast.error("Não foi possível copiar"); }
+  };
+  const installBlock = (
+    <div className="space-y-2 text-xs text-muted-foreground">
+      <p>Para usar o OpenClaw, instale na sua VPS:</p>
+      <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+        <code className="flex-1 font-mono text-foreground break-all">curl -fsSL https://viverdeia.ai/install/atlas | sh</code>
+        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyInstall}><Copy className="h-3.5 w-3.5" /></Button>
+      </div>
+      <p>Após instalar, cole a URL e o token abaixo.</p>
+    </div>
+  );
+
   return (
     <>
       <Card>
@@ -343,12 +360,17 @@ function GithubVpsSection({ companyId }: { companyId: string }) {
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-base">VPS Hostinger (instância OpenClaw)</CardTitle>
-            <CardDescription className="text-xs">URL da instância que puxa o repo e executa. Token no Vault.</CardDescription>
+            <CardTitle className="text-base">OpenClaw (instância na VPS)</CardTitle>
+            <CardDescription className="text-xs">O executor que roda ações de browser. Instale na VPS e cole URL + token (no Vault).</CardDescription>
           </div>
-          <Badge variant={hasVps ? "default" : "secondary"}>{hasVps ? "Configurado" : "Vazio"}</Badge>
+          {val.vps?.ok
+            ? <Badge className="bg-success text-white hover:bg-success">Conectado</Badge>
+            : val.vps
+              ? <Badge variant="destructive">Erro</Badge>
+              : <Badge variant={openclawConfigured ? "default" : "secondary"}>{openclawConfigured ? "Configurado" : "Vazio"}</Badge>}
         </CardHeader>
         <CardContent className="space-y-3">
+          {!openclawConfigured && <div className="rounded-lg border bg-muted/40 p-3">{installBlock}</div>}
           <div className="space-y-2"><Label className="text-xs">URL da instância</Label>
             <Input value={vpsUrl} onChange={(e) => setVpsUrl(e.target.value)} placeholder="https://atlas.cliente.com" /></div>
           <div className="space-y-2"><Label className="text-xs">Token OpenClaw</Label>
@@ -358,7 +380,14 @@ function GithubVpsSection({ companyId }: { companyId: string }) {
             <Button variant="outline" size="sm" onClick={testVps} disabled={busy === "test-vps"}>{busy === "test-vps" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar conexão</Button>
             <Button size="sm" onClick={saveVps} disabled={busy === "save-vps"}>{busy === "save-vps" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button>
           </div>
-          <Tutorial {...TUTORIALS.vps} />
+          {openclawConfigured && (
+            <Collapsible className="rounded-md border border-border bg-muted/30">
+              <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium hover:bg-muted/50 rounded-md">
+                <HelpCircle className="h-3.5 w-3.5" /> Ver instruções de instalação →
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-4 pb-3 pt-1">{installBlock}</CollapsibleContent>
+            </Collapsible>
+          )}
         </CardContent>
       </Card>
     </>
