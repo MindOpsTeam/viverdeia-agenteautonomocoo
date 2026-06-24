@@ -20,6 +20,7 @@ export type Database = {
           backlog_provider: string | null
           brain_synced_at: string | null
           brain_version: string | null
+          business_model: string | null
           checkpoint_time: string | null
           comm_provider: string | null
           company_id: string
@@ -32,11 +33,14 @@ export type Database = {
           github_repo_url: string | null
           id: string
           is_active: boolean | null
+          main_challenges: Json | null
           morning_briefing_time: string | null
           notion_database_id: string | null
           notion_database_ids: Json | null
           openclaw_workspace_url: string | null
+          segment: string | null
           soul_md: string | null
+          team_size: string | null
           timezone: string | null
           updated_at: string | null
           user_md: string | null
@@ -47,6 +51,7 @@ export type Database = {
           backlog_provider?: string | null
           brain_synced_at?: string | null
           brain_version?: string | null
+          business_model?: string | null
           checkpoint_time?: string | null
           comm_provider?: string | null
           company_id: string
@@ -59,11 +64,14 @@ export type Database = {
           github_repo_url?: string | null
           id?: string
           is_active?: boolean | null
+          main_challenges?: Json | null
           morning_briefing_time?: string | null
           notion_database_id?: string | null
           notion_database_ids?: Json | null
           openclaw_workspace_url?: string | null
+          segment?: string | null
           soul_md?: string | null
+          team_size?: string | null
           timezone?: string | null
           updated_at?: string | null
           user_md?: string | null
@@ -74,6 +82,7 @@ export type Database = {
           backlog_provider?: string | null
           brain_synced_at?: string | null
           brain_version?: string | null
+          business_model?: string | null
           checkpoint_time?: string | null
           comm_provider?: string | null
           company_id?: string
@@ -86,11 +95,14 @@ export type Database = {
           github_repo_url?: string | null
           id?: string
           is_active?: boolean | null
+          main_challenges?: Json | null
           morning_briefing_time?: string | null
           notion_database_id?: string | null
           notion_database_ids?: Json | null
           openclaw_workspace_url?: string | null
+          segment?: string | null
           soul_md?: string | null
+          team_size?: string | null
           timezone?: string | null
           updated_at?: string | null
           user_md?: string | null
