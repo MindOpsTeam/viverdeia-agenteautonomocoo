@@ -59,7 +59,7 @@ function SystemPromptSection({ cerebro }: { cerebro: CerebroState }) {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">System Prompt</CardTitle>
-        <p className="text-xs text-amber-700 flex items-center gap-1">
+        <p className="text-xs text-warning flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" /> Para usuários avançados — instrui o Atlas diretamente.
         </p>
       </CardHeader>
@@ -110,10 +110,10 @@ function SuggestionCard({ directive, cerebro }: { directive: Directive; cerebro:
   const [text, setText] = useState(directive.content);
 
   return (
-    <Card className="border-blue-200 bg-blue-50/60">
+    <Card className="border-info/30 bg-info/10">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Badge className="bg-blue-600 hover:bg-blue-600">AUTOMÁTICA</Badge>
+          <Badge className="bg-info hover:bg-info text-white">AUTOMÁTICA</Badge>
           <span className="text-xs font-normal text-muted-foreground inline-flex items-center gap-1">
             <Zap className="h-3 w-3" /> {directive.origin_event ?? "Sugerida pela IA"}
           </span>
@@ -126,7 +126,7 @@ function SuggestionCard({ directive, cerebro }: { directive: Directive; cerebro:
           <p className="text-sm font-medium">{directive.content}</p>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700"
+          <Button size="sm" className="bg-success hover:bg-success/90 text-white"
             onClick={() => cerebro.updateDirective(directive.id, editing ? { content: text, status: "active" } : { status: "active" })}>
             <Check className="h-4 w-4 mr-1" /> Aceitar
           </Button>
@@ -198,7 +198,7 @@ function TrainSection({ cerebro }: { cerebro: CerebroState }) {
               </Button>
             </div>
             {draft && (
-              <div className="rounded-lg border bg-blue-50/60 p-3 space-y-2">
+              <div className="rounded-lg border bg-info/10 p-3 space-y-2">
                 <p className="text-xs text-muted-foreground">Diretriz proposta pela IA:</p>
                 <p className="text-sm font-medium">{draft}</p>
                 <div className="flex gap-2">

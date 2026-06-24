@@ -44,7 +44,7 @@ export default function CerebroPage() {
     return (
       <AppShell>
         <div className="space-y-4 max-w-5xl">
-          <h1 className="text-3xl font-bold flex items-center gap-2"><Brain className="h-7 w-7" /> Cérebro</h1>
+          <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2"><Brain className="h-7 w-7" /> Cérebro</h1>
           <p className="text-muted-foreground">Conclua o onboarding do Atlas para configurar o cérebro.</p>
           <Button asChild><a href="/onboarding">Fazer onboarding</a></Button>
         </div>
@@ -57,12 +57,13 @@ export default function CerebroPage() {
   return (
     <AppShell>
       <div className="space-y-6 max-w-5xl">
-        <h1 className="text-3xl font-bold flex items-center gap-2"><Brain className="h-7 w-7" /> Cérebro</h1>
+        <h1 className="text-3xl font-semibold tracking-tight flex items-center gap-2"><Brain className="h-7 w-7" /> Cérebro</h1>
 
         {/* Header de status vivo */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border bg-card px-4 py-3 text-sm">
-          <span className="flex items-center gap-2 font-medium">
-            <span className={cn("h-2.5 w-2.5 rounded-full", synced ? "bg-emerald-500" : "bg-amber-500")} />
+          <span className="flex items-center gap-2 font-medium" style={{ color: synced ? "hsl(var(--success))" : "hsl(var(--warning))" }}>
+            <span className={cn("h-2 w-2 rounded-full", synced && "atlas-pulse")}
+              style={{ background: synced ? "#1f9d6b" : "hsl(var(--warning))" }} />
             {synced ? "Cérebro online" : "Cérebro não sincronizado"}
           </span>
           <span className="text-muted-foreground">· Última sincronização: {relativeTime(cerebro.brain.syncedAt)}</span>
@@ -75,11 +76,13 @@ export default function CerebroPage() {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as CerebroTab)}>
-          <TabsList>
-            <TabsTrigger value="resumo">Resumo</TabsTrigger>
-            <TabsTrigger value="identidade">Identidade</TabsTrigger>
-            <TabsTrigger value="diretrizes">Diretrizes</TabsTrigger>
-            <TabsTrigger value="conhecimento">Conhecimento</TabsTrigger>
+          <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
+            {(["resumo", "identidade", "diretrizes", "conhecimento"] as const).map((t) => (
+              <TabsTrigger key={t} value={t}
+                className="rounded-none border-b-2 border-transparent bg-transparent px-0 pb-2.5 text-[13.5px] font-medium capitalize text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">
+                {t}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <TabsContent value="resumo" className="mt-6">

@@ -43,7 +43,7 @@ function IdentityForm({ cerebro, onStartWizard }: { cerebro: CerebroState; onSta
     <div className="space-y-4">
       <Card className="border-dashed">
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <div className="flex items-center gap-2 text-sm"><Sparkles className="h-4 w-4 text-blue-600" /><span>Prefere montar a identidade conversando com a IA?</span></div>
+          <div className="flex items-center gap-2 text-sm"><Sparkles className="h-4 w-4 text-info" /><span>Prefere montar a identidade conversando com a IA?</span></div>
           <Button variant="outline" size="sm" onClick={onStartWizard}><Sparkles className="h-4 w-4 mr-1" /> Preencher com IA</Button>
         </CardContent>
       </Card>
@@ -53,7 +53,7 @@ function IdentityForm({ cerebro, onStartWizard }: { cerebro: CerebroState; onSta
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Identidade do agente</CardTitle>
             {context?.generated_by_ai && (
-              <Badge className="bg-blue-600 hover:bg-blue-600">Gerado por IA · Revisado{context.reviewed_at ? ` em ${new Date(context.reviewed_at).toLocaleDateString("pt-BR")}` : ""}</Badge>
+              <Badge className="bg-info hover:bg-info text-white">Gerado por IA · Revisado{context.reviewed_at ? ` em ${new Date(context.reviewed_at).toLocaleDateString("pt-BR")}` : ""}</Badge>
             )}
           </div>
           <CardDescription>Quem é o Atlas, o que faz por esta empresa e como fala com o time.</CardDescription>
@@ -132,8 +132,8 @@ function IdentityWizard({ onExit, generate, apply }: {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-blue-600" /> Montar identidade com IA</CardTitle>
-          <Badge className="bg-blue-600 hover:bg-blue-600">Gerado por IA</Badge>
+          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-info" /> Montar identidade com IA</CardTitle>
+          <Badge className="bg-info hover:bg-info text-white">Gerado por IA</Badge>
         </div>
         <div className="flex items-center gap-2 pt-3 text-xs">
           {STEPS.map((s, i) => (

@@ -18,13 +18,13 @@ export function ResumoTab({ cerebro, onNavigate }: { cerebro: CerebroState; onNa
   return (
     <div className="space-y-6">
       {hasAttention && (
-        <Card className="border-amber-300 bg-amber-50">
+        <Card className="border-warning/30 bg-warning/10">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2 text-amber-900">
+            <CardTitle className="text-base flex items-center gap-2 text-warning">
               <AlertTriangle className="h-4 w-4" /> Precisa da sua atenção
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-amber-900">
+          <CardContent className="space-y-2 text-sm text-foreground">
             {suggestions.length > 0 && (
               <button className="flex items-center gap-1 hover:underline" onClick={() => onNavigate("diretrizes")}>
                 {suggestions.length} sugestão(ões) de diretriz aguardando aprovação <ArrowRight className="h-3 w-3" />
@@ -45,7 +45,7 @@ export function ResumoTab({ cerebro, onNavigate }: { cerebro: CerebroState; onNa
           <div className="flex items-center gap-3">
             <CardTitle className="text-xl">{context?.agent_name ?? "Atlas"}</CardTitle>
             <Badge variant="secondary">{TONE_LABEL[context?.communication_tone ?? "direct"]}</Badge>
-            {context?.generated_by_ai && <Badge className="bg-blue-600 hover:bg-blue-600">Gerado por IA</Badge>}
+            {context?.generated_by_ai && <Badge className="bg-info hover:bg-info text-white">Gerado por IA</Badge>}
           </div>
         </CardHeader>
         <CardContent>
@@ -87,19 +87,19 @@ export function ResumoTab({ cerebro, onNavigate }: { cerebro: CerebroState; onNa
           <NavCard
             title="Identidade"
             line={identityConfigured ? `${TONE_LABEL[context?.communication_tone ?? "direct"]} · ✓ Configurado` : "Ainda não configurada"}
-            icon={identityConfigured ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+            icon={identityConfigured ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
             onClick={() => onNavigate("identidade")}
           />
           <NavCard
             title="Diretrizes"
             line={`${activeDirectives.length} regra(s) ativa(s)${suggestions.length ? ` · ⚠️ ${suggestions.length} sugestão pendente` : ""}`}
-            icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+            icon={<CheckCircle2 className="h-4 w-4 text-success" />}
             onClick={() => onNavigate("diretrizes")}
           />
           <NavCard
             title="Conhecimento"
             line={`${files.length} arquivo(s) · ${sources.length} fonte(s)`}
-            icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+            icon={<CheckCircle2 className="h-4 w-4 text-success" />}
             onClick={() => onNavigate("conhecimento")}
           />
         </div>
@@ -111,8 +111,8 @@ export function ResumoTab({ cerebro, onNavigate }: { cerebro: CerebroState; onNa
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border p-3">
-      <div className="text-lg font-bold">{value}</div>
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="font-mono text-lg font-semibold tracking-tight">{value}</div>
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.04em] text-muted-foreground mt-0.5">{label}</div>
     </div>
   );
 }

@@ -140,8 +140,8 @@ export function ConhecimentoTab({ cerebro }: { cerebro: CerebroState }) {
 }
 
 function statusBadge(status: KnowledgeItem["status"]) {
-  if (status === "available") return <Badge className="bg-emerald-600 hover:bg-emerald-600">Disponível</Badge>;
-  if (status === "indexing") return <Badge className="bg-blue-600 hover:bg-blue-600 animate-pulse">Indexando…</Badge>;
+  if (status === "available") return <Badge className="bg-success hover:bg-success text-white">Disponível</Badge>;
+  if (status === "indexing") return <Badge className="bg-info hover:bg-info text-white animate-pulse">Indexando…</Badge>;
   return <Badge variant="destructive">Erro</Badge>;
 }
 
