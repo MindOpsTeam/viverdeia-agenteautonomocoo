@@ -122,7 +122,7 @@ function ChatDireto({ companyId }: { companyId: string }) {
         )}
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            {m.role === "assistant" && <div className="h-7 w-7 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0"><Bot className="h-4 w-4" /></div>}
+            {m.role === "assistant" && <div className="h-7 w-7 rounded-full bg-info text-white flex items-center justify-center shrink-0"><Bot className="h-4 w-4" /></div>}
             <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted"}`}>
               {m.role === "assistant" ? <MarkdownMessage content={m.content} /> : m.content}
             </div>
