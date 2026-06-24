@@ -592,6 +592,25 @@ export default function OnboardingPage() {
                       ]}
                       link={{ href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" }}
                     />
+                    {form.notion_mode === "create" ? (
+                      <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                        <p><strong className="text-foreground">Como funciona o "Criar pra mim":</strong></p>
+                        <ol className="list-decimal pl-4 space-y-1">
+                          <li>Crie a integração no Notion (veja o passo a passo acima) e cole o token abaixo.</li>
+                          <li>No Notion, abra a <strong>página</strong> onde o Atlas deve criar o database (ex.: workspace raiz) → clique em "..." → <strong>Connections</strong> → adicione a integração Atlas.</li>
+                          <li>Clique em <strong>"Criar database de backlog"</strong>. O Atlas cria automaticamente um database com as colunas certas (Status, Prioridade, Responsável, etc).</li>
+                        </ol>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                        <p><strong className="text-foreground">Como funciona o "Já tenho":</strong></p>
+                        <ol className="list-decimal pl-4 space-y-1">
+                          <li>Compartilhe seus databases com a integração Atlas no Notion (em cada database: "..." → Connections → Atlas).</li>
+                          <li>Cole o token abaixo e clique em <strong>"Conectar e listar databases"</strong>.</li>
+                          <li>Marque cada database como <em>Backlog</em>, <em>Base de conhecimento</em> ou <em>Ignorar</em>.</li>
+                        </ol>
+                      </div>
+                    )}
                     <Field label="Notion Token">
                       <Input type="password" value={form.notion_token} onChange={onInput("notion_token")}
                         placeholder={savedSecret("notion") ? "•••••• (salvo) — cole para reconectar" : "secret_... ou ntn_..."} />
