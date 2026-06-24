@@ -37,8 +37,8 @@ const STATUS_PCT: Record<ImportStatus, number> = {
 
 function kindIcon(kind: string) {
   if (kind === "audio") return <Music className="h-4 w-4 text-violet-500" />;
-  if (kind === "video") return <Video className="h-4 w-4 text-rose-500" />;
-  if (kind === "url") return <Link2 className="h-4 w-4 text-blue-500" />;
+  if (kind === "video") return <Video className="h-4 w-4 text-destructive" />;
+  if (kind === "url") return <Link2 className="h-4 w-4 text-info" />;
   return <FileText className="h-4 w-4 text-muted-foreground" />;
 }
 
@@ -206,7 +206,7 @@ export default function ProcessosPage() {
                 className="text-left rounded-xl border bg-card p-4 hover:border-foreground/30 transition-colors">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{p.name}</span>
-                  {p.status === "draft" ? <Badge variant="secondary" className="text-[10px]">Rascunho</Badge> : <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600">Publicado</Badge>}
+                  {p.status === "draft" ? <Badge variant="secondary" className="text-[10px]">Rascunho</Badge> : <Badge className="text-[10px] bg-success hover:bg-success text-white">Publicado</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">{p.area || "Sem área"} · {p.steps.length} passo(s)</p>
                 <div className="mt-2"><VisibilityBadge v={p.visibility} /></div>
@@ -227,12 +227,12 @@ export default function ProcessosPage() {
 function ImportRow({ job, onReview, onDismiss }: { job: ProcessImport; onReview: () => void; onDismiss: () => void }) {
   if (job.status === "error") {
     return (
-      <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-3 flex items-center justify-between gap-2">
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10/60 p-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {kindIcon(job.kind)}
           <div className="min-w-0">
             <p className="text-sm truncate">{job.source_name}</p>
-            <p className="text-xs text-rose-700">{job.error ?? "Falha ao processar."}</p>
+            <p className="text-xs text-destructive">{job.error ?? "Falha ao processar."}</p>
           </div>
         </div>
         <Button size="sm" variant="ghost" onClick={onDismiss}><X className="h-3.5 w-3.5" /></Button>
@@ -242,16 +242,16 @@ function ImportRow({ job, onReview, onDismiss }: { job: ProcessImport; onReview:
   if (job.status === "ready") {
     const n = (job.result ?? []).length;
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 flex items-center justify-between gap-2">
+      <div className="rounded-lg border border-success/30 bg-success/10/60 p-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {kindIcon(job.kind)}
           <div className="min-w-0">
             <p className="text-sm truncate">{job.source_name}</p>
-            <p className="text-xs text-emerald-700">{n > 0 ? `${n} processo(s) detectado(s) · pronto para revisar` : "Nenhum processo identificado"}</p>
+            <p className="text-xs text-success">{n > 0 ? `${n} processo(s) detectado(s) · pronto para revisar` : "Nenhum processo identificado"}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={onReview}><Eye className="h-3.5 w-3.5 mr-1" /> Revisar</Button>
+          <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={onReview}><Eye className="h-3.5 w-3.5 mr-1" /> Revisar</Button>
           <Button size="sm" variant="ghost" onClick={onDismiss}><X className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
@@ -279,11 +279,11 @@ function ObservedCard({ suggestion, processes, onCreate, onAddTo, onIgnore }: {
   const published = processes.filter((p) => p.status === "published");
   const [addMode, setAddMode] = useState(false);
   return (
-    <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 space-y-3">
+    <div className="rounded-xl border border-info/30 bg-info/10/60 p-4 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <Sparkles className="h-4 w-4 text-blue-600" />
+        <Sparkles className="h-4 w-4 text-info" />
         <span className="text-sm font-medium">O que o Atlas observou</span>
-        {suggestion.evidence?.count ? <Badge className="text-[10px] bg-blue-600 hover:bg-blue-600">{suggestion.evidence.count} execução(ões) observada(s)</Badge> : null}
+        {suggestion.evidence?.count ? <Badge className="text-[10px] bg-info hover:bg-info text-white">{suggestion.evidence.count} execução(ões) observada(s)</Badge> : null}
       </div>
       <div>
         <p className="text-sm font-medium">{sp.name}{sp.area ? ` · ${sp.area}` : ""}</p>
@@ -304,7 +304,7 @@ function ObservedCard({ suggestion, processes, onCreate, onAddTo, onIgnore }: {
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={onCreate}><Plus className="h-4 w-4 mr-1" /> Criar processo a partir disso</Button>
+          <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={onCreate}><Plus className="h-4 w-4 mr-1" /> Criar processo a partir disso</Button>
           <Button size="sm" variant="outline" onClick={() => setAddMode(true)}><Pencil className="h-4 w-4 mr-1" /> Adicionar a processo existente</Button>
           <Button size="sm" variant="ghost" className="text-destructive" onClick={onIgnore}><X className="h-4 w-4 mr-1" /> Ignorar</Button>
         </div>
@@ -410,7 +410,7 @@ function ProcessEditor({ state, process, aiBadge, onBack }: {
 
       <div>
         <h1 className="text-2xl font-bold">{process?.id ? "Editar processo" : "Novo processo"}</h1>
-        {aiBadge && <Badge className="mt-2 bg-blue-600 hover:bg-blue-600">Estruturado por IA · Revise antes de publicar</Badge>}
+        {aiBadge && <Badge className="mt-2 bg-info hover:bg-info text-white">Estruturado por IA · Revise antes de publicar</Badge>}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -434,11 +434,11 @@ function ProcessEditor({ state, process, aiBadge, onBack }: {
         const isEditing = editing?.id === sg.id;
         const stepDesc = sg.suggested_step?.description ?? "";
         return (
-          <div key={sg.id} className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 space-y-3">
+          <div key={sg.id} className="rounded-xl border border-info/30 bg-info/10/60 p-4 space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <Sparkles className="h-4 w-4 text-blue-600" />
+              <Sparkles className="h-4 w-4 text-info" />
               <span className="text-sm font-medium">Sugestão do Atlas</span>
-              <Badge className="text-[10px] bg-blue-600 hover:bg-blue-600">OBSERVADO EM CAMPO</Badge>
+              <Badge className="text-[10px] bg-info hover:bg-info text-white">OBSERVADO EM CAMPO</Badge>
               {sg.evidence?.count ? <span className="text-xs text-muted-foreground">{sg.evidence.count} execução(ões) observada(s)</span> : null}
             </div>
             {isEditing ? (
@@ -447,7 +447,7 @@ function ProcessEditor({ state, process, aiBadge, onBack }: {
               <p className="text-sm">{stepDesc}</p>
             )}
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700"
+              <Button size="sm" className="bg-success hover:bg-success/90 text-white"
                 onClick={async () => {
                   const desc = isEditing ? editing!.text : stepDesc;
                   addStep({ description: desc, responsible: sg.suggested_step?.responsible ?? "", sla: sg.suggested_step?.sla ?? "" });
