@@ -638,6 +638,17 @@ export default function OnboardingPage() {
                   <>
                     <ModeToggle value={form.discord_mode} onChange={(v) => set("discord_mode", v as Form["discord_mode"])}
                       options={[{ value: "have", label: "Já tenho servidor" }, { value: "setup", label: "Configurar pra mim" }]} />
+                    <Tutorial
+                      title="Como obter Bot Token, Server ID e Public Key"
+                      steps={[
+                        "Acesse discord.com/developers/applications e clique em \"New Application\" (nome ex.: Atlas).",
+                        "Na aba \"Bot\" → Reset Token → copie o Bot Token. Ative os Privileged Gateway Intents (Message Content).",
+                        "Na aba \"General Information\" → copie a Public Key.",
+                        "Na aba \"OAuth2\" → URL Generator → marque bot + escopos Manage Channels e Send Messages → abra a URL gerada e adicione o bot ao seu servidor.",
+                        "No Discord, ative o Modo Desenvolvedor (Configurações → Avançado), clique com botão direito no nome do servidor → \"Copiar ID do servidor\". Esse é o Server (Guild) ID.",
+                      ]}
+                      link={{ href: "https://discord.com/developers/applications", label: "Abrir Discord Developer Portal" }}
+                    />
                     <Field label="Discord Bot Token">
                       <Input type="password" value={form.discord_bot_token} onChange={onInput("discord_bot_token")}
                         placeholder={savedSecret("discord") ? "•••••• (salvo) — cole para reconectar" : "bot token"} />
