@@ -3,7 +3,10 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, Bot, Check, Loader2, Send, User, X } from "lucide-react";
+import {
+  AlertTriangle, ArrowRight, ArrowUp, Bell, Check, Clock, CornerDownRight,
+  Loader2, MessageSquare, Sparkles, User, X,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -22,6 +25,11 @@ function greeting(): string {
   return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 }
 
+function nowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 interface Suggestion {
   id: string;
   text: string;
@@ -30,6 +38,31 @@ interface Suggestion {
 }
 
 interface ChatTurn { role: "user" | "assistant"; content: string }
+
+// Marca "A" do Atlas — gradiente de marca do DS.
+function AtlasMark({ size = 44 }: { size?: number }) {
+  const s = Math.round(size * 0.55);
+  return (
+    <div
+      className="rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+      style={{ width: size, height: size, background: "linear-gradient(160deg,#0a4f95,#02162a)" }}
+    >
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <path d="M5 19 L12 5 L19 19" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M8.5 14 H15.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+// Mapeamento visual (sem mudar dados): ícone + cor do tile por tipo de sugestão.
+function suggestionVisual(id: string): { Icon: typeof Bell; tile: string } {
+  if (id.startsWith("blocked")) return { Icon: AlertTriangle, tile: "bg-warning/15 text-warning" };
+  if (id.startsWith("routine") || id === "next-routine") return { Icon: Clock, tile: "bg-info/15 text-info" };
+  if (id.startsWith("dir")) return { Icon: Sparkles, tile: "bg-accent text-primary" };
+  if (id === "channel") return { Icon: MessageSquare, tile: "bg-accent text-primary" };
+  return { Icon: Bell, tile: "bg-accent text-primary" };
+}
 
 export default function HomePage() {
   const { profile } = useAuth();
@@ -141,6 +174,8 @@ export default function HomePage() {
     setMessages((prev) => [...prev, { role: "assistant", content: (data as any).reply }]);
   };
 
+  const firstName = profile ? `, ${profile.full_name.split(" ")[0]}` : "";
+
   if (loading) {
     return <AppShell><div className="space-y-6 max-w-3xl"><Skeleton className="h-10 w-72" /><Skeleton className="h-24" /><Skeleton className="h-24" /></div></AppShell>;
   }
@@ -149,7 +184,7 @@ export default function HomePage() {
     return (
       <AppShell>
         <div className="space-y-4 max-w-3xl">
-          <h1 className="text-3xl font-bold">{greeting()}{profile ? `, ${profile.full_name.split(" ")[0]}` : ""}.</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{greeting()}{firstName}.</h1>
           <p className="text-muted-foreground">Seu Atlas ainda não está configurado. Conclua o onboarding para ele começar a operar.</p>
           <Button asChild><a href="/onboarding">Fazer onboarding</a></Button>
         </div>
@@ -157,87 +192,125 @@ export default function HomePage() {
     );
   }
 
+  const metrics = [
+    { label: "Concluídas hoje", value: stats.done },
+    { label: "Em andamento", value: stats.doing },
+    { label: "Bloqueadas", value: stats.blocked },
+    { label: "Pra você", value: suggestions.length, note: "pendências" },
+  ];
+
   return (
     <AppShell>
-      <div className="max-w-3xl mx-auto">
-        <div className="space-y-5">
-          {/* Banner de boas-vindas pós-onboarding */}
-          {showWelcome && (
-            <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm text-emerald-900">🎉 Atlas ativado! A operação já está rodando. Acompanhe tudo por aqui.</span>
-              <Button size="sm" variant="ghost" onClick={dismissWelcome}><X className="h-3.5 w-3.5" /></Button>
-            </div>
-          )}
+      <div className="flex gap-6 max-w-[1180px] mx-auto w-full items-start">
+        {/* ---------- Coluna esquerda ---------- */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex flex-col gap-4">
+            {/* Banner de boas-vindas pós-onboarding */}
+            {showWelcome && (
+              <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-card px-4 py-3 shadow-sm"
+                style={{ borderLeft: "3px solid hsl(var(--success))" }}>
+                <span className="flex-1 text-sm text-foreground">🎉 <strong className="font-semibold">Atlas ativado!</strong> A operação já está rodando. Acompanhe tudo por aqui.</span>
+                <Button size="sm" variant="ghost" onClick={dismissWelcome}><X className="h-3.5 w-3.5" /></Button>
+              </div>
+            )}
 
-          {/* Saudação do Atlas */}
-          <div className="flex gap-3 pt-2">
-            <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0"><Bot className="h-5 w-5" /></div>
-            <div>
-              <h1 className="text-xl font-semibold">{greeting()}{profile ? `, ${profile.full_name.split(" ")[0]}` : ""}. Aqui está o que importa agora:</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {stats.done} concluída(s) hoje · {stats.doing} em andamento · {stats.blocked} bloqueada(s).
-              </p>
+            {/* Saudação do Atlas */}
+            <div className="flex items-start gap-3 animate-atlas-up">
+              <AtlasMark size={44} />
+              <div className="pt-px">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[12.5px] font-semibold text-foreground">Atlas</span>
+                  <span className="font-mono text-[10.5px] text-muted-foreground">{nowHHMM()}</span>
+                </div>
+                <h1 className="text-[29px] font-semibold leading-[1.12] tracking-[-0.022em] text-foreground">{greeting()}{firstName}.</h1>
+                <p className="mt-1.5 text-[15px] text-muted-foreground tracking-[-0.006em]">Aqui está o que importa agora — já cuidei do resto.</p>
+              </div>
             </div>
+
+            {/* Sugestões proativas */}
+            {visibleSuggestions.map((s) => {
+              const { Icon, tile } = suggestionVisual(s.id);
+              return (
+                <div key={s.id} className="flex gap-3 rounded-[14px] border bg-card p-4 shadow-sm animate-atlas-up">
+                  <div className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] ${tile}`}>
+                    <Icon className="h-[19px] w-[19px]" strokeWidth={1.9} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14.5px] font-medium leading-[1.45] tracking-[-0.006em] text-foreground">{s.text}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {s.accept && (
+                        <Button size="sm" className="h-8" onClick={async () => { await s.accept!(); dismiss(s.id); }}>
+                          <Check className="h-3.5 w-3.5 mr-1" /> Aceitar
+                        </Button>
+                      )}
+                      {s.primary && (
+                        <Button size="sm" variant="outline" className="h-8" asChild>
+                          <a href={s.primary.href}>{s.primary.label} <ArrowRight className="h-3.5 w-3.5 ml-1" /></a>
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-8" onClick={() => dismiss(s.id)}>Dispensar</Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Conversa */}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                {m.role === "assistant" && <AtlasMark size={32} />}
+                <div className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted text-foreground"}`}>
+                  {m.role === "assistant" ? <MarkdownMessage content={m.content} /> : m.content}
+                </div>
+                {m.role === "user" && <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0"><User className="h-4 w-4" /></div>}
+              </div>
+            ))}
+            {sending && <div className="flex items-center gap-2 text-xs text-muted-foreground pl-11"><Loader2 className="h-3 w-3 animate-spin" /> O Atlas está pensando…</div>}
+            <div ref={endRef} />
           </div>
 
-          {/* Sugestões proativas */}
-          {visibleSuggestions.length > 0 && (
-            <div className="space-y-2 pl-12">
-              {visibleSuggestions.map((s) => (
-                <div key={s.id} className="rounded-xl border bg-card p-3 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm flex-1 min-w-[200px]">{s.text}</span>
-                  <div className="flex items-center gap-2">
-                    {s.primary && (
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={s.primary.href}>{s.primary.label} <ArrowRight className="h-3.5 w-3.5 ml-1" /></a>
-                      </Button>
-                    )}
-                    {s.accept && (
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={async () => { await s.accept!(); dismiss(s.id); }}>
-                        <Check className="h-3.5 w-3.5 mr-1" /> Aceitar
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => dismiss(s.id)}><X className="h-3.5 w-3.5" /></Button>
-                  </div>
+          {/* Input + chips (sticky no rodapé) */}
+          <div className="sticky bottom-16 md:bottom-2 z-10 mt-4 space-y-3 bg-background pt-3">
+            <div className="flex flex-col gap-2">
+              {QUICK_CATEGORIES.map((c) => (
+                <div key={c.cat} className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">{c.cat}</span>
+                  {c.items.map((it) => (
+                    <button key={it} onClick={() => send(it)} disabled={sending}
+                      className="inline-flex items-center gap-1.5 h-8 rounded-full border border-border bg-card px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50">
+                      <CornerDownRight className="h-3 w-3 text-muted-foreground" strokeWidth={1.75} />{it}
+                    </button>
+                  ))}
                 </div>
               ))}
             </div>
-          )}
+            <div className="flex items-center gap-2 rounded-xl border bg-card pl-4 pr-1.5 py-1.5 shadow-sm">
+              <MessageSquare className="h-[17px] w-[17px] shrink-0 text-muted-foreground" strokeWidth={1.75} />
+              <Input
+                value={input} onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") send(input); }}
+                placeholder="Fale com o Atlas…"
+                className="flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-[14.5px]"
+              />
+              <Button onClick={() => send(input)} disabled={sending || !input.trim()} size="icon" className="h-9 w-9 rounded-lg shrink-0">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.1} />}
+              </Button>
+            </div>
+          </div>
+        </div>
 
-          {/* Conversa */}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              {m.role === "assistant" && <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0"><Bot className="h-4 w-4" /></div>}
-              <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted"}`}>
-                {m.role === "assistant" ? <MarkdownMessage content={m.content} /> : m.content}
+        {/* ---------- Trilho direito: métricas 2×2 ---------- */}
+        <aside className="hidden lg:grid w-[312px] flex-none grid-cols-2 gap-3 self-start">
+          {metrics.map((m) => (
+            <div key={m.label} className="rounded-xl border bg-card p-3.5 shadow-sm">
+              <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.05em] text-muted-foreground leading-[1.3] min-h-[24px]">{m.label}</div>
+              <div className="mt-1.5 flex items-baseline gap-1.5">
+                <span className="font-mono text-[25px] font-semibold tracking-[-0.02em] text-foreground">{String(m.value).padStart(2, "0")}</span>
+                {m.note && <span className="font-mono text-[11px] font-medium text-muted-foreground">{m.note}</span>}
               </div>
-              {m.role === "user" && <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0"><User className="h-4 w-4" /></div>}
             </div>
           ))}
-          {sending && <div className="flex items-center gap-2 text-xs text-muted-foreground pl-12"><Loader2 className="h-3 w-3 animate-spin" /> O Atlas está pensando…</div>}
-          <div ref={endRef} />
-        </div>
-
-        {/* Input fixo no rodapé (acima da bottom-nav no mobile) */}
-        <div className="border-t bg-background pt-3 space-y-2 sticky bottom-16 md:bottom-2 z-10">
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-            {QUICK_CATEGORIES.map((c) => (
-              <div key={c.cat} className="flex items-center gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{c.cat}</span>
-                {c.items.map((it) => (
-                  <button key={it} onClick={() => send(it)} disabled={sending}
-                    className="text-xs rounded-full border px-2.5 py-1 hover:bg-muted transition-colors disabled:opacity-50">{it}</button>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2 pb-3">
-            <Input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(input); }} placeholder="Fale com o Atlas..." />
-            <Button onClick={() => send(input)} disabled={sending || !input.trim()}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
+        </aside>
       </div>
     </AppShell>
   );
