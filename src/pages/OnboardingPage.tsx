@@ -10,8 +10,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2,
+  Check, CheckCircle2, Loader2, XCircle, SkipForward, Plug, Wand2, HelpCircle, ExternalLink,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
