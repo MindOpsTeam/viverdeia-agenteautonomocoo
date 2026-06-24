@@ -580,6 +580,18 @@ export default function OnboardingPage() {
                   <>
                     <ModeToggle value={form.notion_mode} onChange={(v) => set("notion_mode", v as Form["notion_mode"])}
                       options={[{ value: "have", label: "Já tenho" }, { value: "create", label: "Criar pra mim" }]} />
+                    <Tutorial
+                      title="Como obter o Notion Token (Internal Integration Secret)"
+                      steps={[
+                        "Abra notion.so/profile/integrations e clique em \"New integration\".",
+                        "Dê um nome (ex.: Atlas), associe ao workspace certo e salve.",
+                        "Em \"Configuration\", copie o Internal Integration Secret (começa com secret_ ou ntn_).",
+                        form.notion_mode === "have"
+                          ? "Abra cada database que o Atlas vai usar, clique em \"...\" → \"Connections\" → adicione a integração Atlas."
+                          : "Você não precisa criar database — o Atlas vai criar um automaticamente. Só garanta que a integração tenha acesso ao workspace.",
+                      ]}
+                      link={{ href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" }}
+                    />
                     <Field label="Notion Token">
                       <Input type="password" value={form.notion_token} onChange={onInput("notion_token")}
                         placeholder={savedSecret("notion") ? "•••••• (salvo) — cole para reconectar" : "secret_... ou ntn_..."} />
