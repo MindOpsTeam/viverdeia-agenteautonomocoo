@@ -4,9 +4,98 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, XCircle, HelpCircle, ExternalLink } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+function Tutorial({ title, steps, link }: { title: string; steps: React.ReactNode[]; link?: { href: string; label: string } }) {
+  return (
+    <Collapsible className="rounded-md border border-border bg-muted/30">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium hover:bg-muted/50 rounded-md">
+        <HelpCircle className="h-3.5 w-3.5" />
+        Como obter: {title}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-4 pb-3 pt-1 text-xs text-muted-foreground">
+        <ol className="list-decimal pl-5 space-y-1">
+          {steps.map((s, i) => <li key={i}>{s}</li>)}
+        </ol>
+        {link && (
+          <a href={link.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-2 text-primary hover:underline">
+            <ExternalLink className="h-3 w-3" /> {link.label}
+          </a>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+const TUTORIALS: Record<string, { title: string; steps: string[]; link?: { href: string; label: string } }> = {
+  anthropic: {
+    title: "API Key da Anthropic (Claude)",
+    steps: [
+      "Acesse console.anthropic.com e faça login (ou crie uma conta).",
+      "No menu lateral, vá em 'API Keys'.",
+      "Clique em 'Create Key', dê um nome (ex: 'Atlas COO') e copie a chave que começa com 'sk-ant-'.",
+      "Garanta que há créditos/billing configurados em 'Plans & Billing'.",
+      "Cole a chave acima e clique em Salvar.",
+    ],
+    link: { href: "https://console.anthropic.com/settings/keys", label: "Abrir Anthropic Console" },
+  },
+  openclaw: {
+    title: "Token do OpenClaw",
+    steps: [
+      "Faça login no seu workspace OpenClaw.",
+      "Abra Settings → API / Tokens.",
+      "Gere um novo token com permissão de execução e copie o valor (só aparece uma vez).",
+      "Cole no campo acima e salve.",
+    ],
+    link: { href: "https://openclaw.com", label: "Abrir OpenClaw" },
+  },
+  notion: {
+    title: "Token de integração do Notion",
+    steps: [
+      "Acesse notion.so/profile/integrations e clique em '+ New integration'.",
+      "Dê um nome (ex: 'Atlas COO'), escolha o workspace e salve.",
+      "Em 'Configuration' copie o 'Internal Integration Secret' (começa com 'secret_' ou 'ntn_').",
+      "Abra o database de tarefas no Notion → ... → Connections → adicione a integração que você criou.",
+      "Cole o secret acima e salve.",
+    ],
+    link: { href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" },
+  },
+  discord: {
+    title: "Bot Token do Discord",
+    steps: [
+      "Acesse discord.com/developers/applications e abra (ou crie) sua Application.",
+      "No menu lateral clique em 'Bot' → 'Reset Token' → copie o token gerado (só aparece uma vez).",
+      "Em 'OAuth2 → URL Generator' marque os escopos 'bot' + 'applications.commands' e convide o bot no seu servidor.",
+      "Cole o token acima e salve.",
+    ],
+    link: { href: "https://discord.com/developers/applications", label: "Abrir Discord Developer Portal" },
+  },
+  github: {
+    title: "URL do repositório e Personal Access Token (PAT)",
+    steps: [
+      "Crie (ou use) um repositório privado em github.com para os arquivos de skills e copie a URL HTTPS (ex: https://github.com/seu-usuario/atlas-skills).",
+      "No GitHub, vá em Settings (perfil) → Developer settings → Personal access tokens → Fine-grained tokens.",
+      "Clique em 'Generate new token', selecione o repositório e dê as permissões: Contents (Read & Write) e Metadata (Read).",
+      "Copie o token (começa com 'github_pat_') — ele só aparece uma vez.",
+      "Cole a URL e o PAT acima e salve.",
+    ],
+    link: { href: "https://github.com/settings/personal-access-tokens", label: "Criar PAT no GitHub" },
+  },
+  vps: {
+    title: "URL e Token da VPS Hostinger (OpenClaw)",
+    steps: [
+      "Acesse hpanel.hostinger.com → VPS → selecione sua instância onde o OpenClaw está rodando.",
+      "Copie o IP público ou domínio configurado e monte a URL (ex: https://atlas.seudominio.com).",
+      "Gere um token de acesso no OpenClaw rodando na VPS (Settings → API Tokens) — copie o valor.",
+      "Confirme que a porta/HTTPS está aberta e respondendo (curl na URL deve retornar a API).",
+      "Cole a URL e o token acima e salve.",
+    ],
+    link: { href: "https://hpanel.hostinger.com/vps", label: "Abrir painel VPS Hostinger" },
+  },
+};
 
 type Service = "anthropic" | "openclaw" | "notion" | "discord";
 
@@ -150,6 +239,7 @@ export default function CredentialsSettings() {
                   Salvar
                 </Button>
               </div>
+              {TUTORIALS[svc.key] && <Tutorial {...TUTORIALS[svc.key]} />}
             </CardContent>
           </Card>
         );
@@ -246,6 +336,7 @@ function GithubVpsSection({ companyId }: { companyId: string }) {
             <Button variant="outline" size="sm" onClick={testGithub} disabled={busy === "test-github"}>{busy === "test-github" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar conexão</Button>
             <Button size="sm" onClick={saveGithub} disabled={busy === "save-github"}>{busy === "save-github" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button>
           </div>
+          <Tutorial {...TUTORIALS.github} />
         </CardContent>
       </Card>
 
@@ -267,6 +358,7 @@ function GithubVpsSection({ companyId }: { companyId: string }) {
             <Button variant="outline" size="sm" onClick={testVps} disabled={busy === "test-vps"}>{busy === "test-vps" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Testar conexão</Button>
             <Button size="sm" onClick={saveVps} disabled={busy === "save-vps"}>{busy === "save-vps" && <Loader2 className="h-3 w-3 animate-spin mr-1" />}Salvar</Button>
           </div>
+          <Tutorial {...TUTORIALS.vps} />
         </CardContent>
       </Card>
     </>
