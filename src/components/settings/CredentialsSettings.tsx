@@ -239,6 +239,7 @@ export default function CredentialsSettings() {
                   Salvar
                 </Button>
               </div>
+              {TUTORIALS[svc.key] && <Tutorial {...TUTORIALS[svc.key]} />}
             </CardContent>
           </Card>
         );
