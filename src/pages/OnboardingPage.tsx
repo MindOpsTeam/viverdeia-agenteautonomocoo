@@ -713,6 +713,27 @@ function StepTitle({ title, desc }: { title: string; desc: string }) {
   );
 }
 
+function Tutorial({ title, steps, link }: { title: string; steps: React.ReactNode[]; link?: { href: string; label: string } }) {
+  return (
+    <Collapsible className="rounded-lg border border-dashed bg-muted/30">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground">
+        <HelpCircle className="h-3.5 w-3.5" />
+        <span>{title}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-3 pb-3 pt-1 text-xs text-muted-foreground">
+        <ol className="list-decimal space-y-1 pl-4">
+          {steps.map((s, i) => <li key={i}>{s}</li>)}
+        </ol>
+        {link && (
+          <a href={link.href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-primary hover:underline">
+            <ExternalLink className="h-3 w-3" /> {link.label}
+          </a>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function Field({ label, ok, children }: { label: string; ok?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
