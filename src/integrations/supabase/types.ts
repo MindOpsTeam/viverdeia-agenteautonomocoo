@@ -17,9 +17,11 @@ export type Database = {
       agent_config: {
         Row: {
           agents_md: string | null
+          backlog_provider: string | null
           brain_synced_at: string | null
           brain_version: string | null
           checkpoint_time: string | null
+          comm_provider: string | null
           company_id: string
           created_at: string | null
           daily_report_time: string | null
@@ -32,6 +34,7 @@ export type Database = {
           is_active: boolean | null
           morning_briefing_time: string | null
           notion_database_id: string | null
+          notion_database_ids: Json | null
           openclaw_workspace_url: string | null
           soul_md: string | null
           timezone: string | null
@@ -41,9 +44,11 @@ export type Database = {
         }
         Insert: {
           agents_md?: string | null
+          backlog_provider?: string | null
           brain_synced_at?: string | null
           brain_version?: string | null
           checkpoint_time?: string | null
+          comm_provider?: string | null
           company_id: string
           created_at?: string | null
           daily_report_time?: string | null
@@ -56,6 +61,7 @@ export type Database = {
           is_active?: boolean | null
           morning_briefing_time?: string | null
           notion_database_id?: string | null
+          notion_database_ids?: Json | null
           openclaw_workspace_url?: string | null
           soul_md?: string | null
           timezone?: string | null
@@ -65,9 +71,11 @@ export type Database = {
         }
         Update: {
           agents_md?: string | null
+          backlog_provider?: string | null
           brain_synced_at?: string | null
           brain_version?: string | null
           checkpoint_time?: string | null
+          comm_provider?: string | null
           company_id?: string
           created_at?: string | null
           daily_report_time?: string | null
@@ -80,6 +88,7 @@ export type Database = {
           is_active?: boolean | null
           morning_briefing_time?: string | null
           notion_database_id?: string | null
+          notion_database_ids?: Json | null
           openclaw_workspace_url?: string | null
           soul_md?: string | null
           timezone?: string | null
@@ -459,6 +468,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "knowledge_files_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_progress: {
+        Row: {
+          company_id: string | null
+          completed: boolean | null
+          created_at: string | null
+          current_step: number | null
+          draft: Json | null
+          id: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          completed?: boolean | null
+          created_at?: string | null
+          current_step?: number | null
+          draft?: Json | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          completed?: boolean | null
+          created_at?: string | null
+          current_step?: number | null
+          draft?: Json | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_progress_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
