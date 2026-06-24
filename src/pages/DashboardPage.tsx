@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -15,8 +15,8 @@ import {
   Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
-  Loader2, RefreshCw, Pause, Play, Activity, CheckCircle2, AlertTriangle, FileText,
-  Clock, AlertOctagon, UserRound, CalendarClock,
+  Loader2, RefreshCw, Pause, Play, Activity, AlertTriangle, FileText,
+  Clock, AlertOctagon, UserRound, CalendarClock, Bell,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -194,28 +194,30 @@ export default function DashboardPage() {
     <AppShell>
       <div className="space-y-6 max-w-6xl">
         {setupPending && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm text-amber-900">⚠️ Faltam passos para o Atlas ficar 100% operacional. Conclua o onboarding.</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning/30 bg-card px-4 py-3 shadow-sm"
+            style={{ borderLeft: "3px solid hsl(var(--warning))" }}>
+            <span className="text-sm text-foreground">Faltam passos para o Atlas ficar 100% operacional. Conclua o onboarding.</span>
             <Button size="sm" variant="outline" asChild><a href="/onboarding">Retomar configuração</a></Button>
           </div>
         )}
         {offline && (
-          <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-            🔴 Instância offline — o Atlas está pausado. Verifique o Cérebro e retome a operação.
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-foreground"
+            style={{ borderLeft: "3px solid hsl(var(--destructive))" }}>
+            Instância offline — o Atlas está pausado. Verifique o Cérebro e retome a operação.
           </div>
         )}
 
         <header className="flex flex-wrap items-center gap-3 justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">Dashboard</h1>
+              <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
               {role && <Badge variant="secondary" className="capitalize">{role}</Badge>}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              Bem-vindo{profile ? `, ${profile.full_name}` : ""}! Operando em <strong>{companyName}</strong>.
+              Bem-vindo{profile ? `, ${profile.full_name}` : ""}! Operando em <strong className="text-foreground">{companyName}</strong>.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <AgentStatusBadge active={!!config?.is_active} />
             <Button variant="outline" size="sm" onClick={handleToggleActive} disabled={togglingActive}>
               {togglingActive ? <Loader2 className="h-4 w-4 animate-spin" /> : config?.is_active
@@ -225,47 +227,60 @@ export default function DashboardPage() {
         </header>
 
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Concluídas hoje" value={stats.doneToday} icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />} />
-          <StatCard label="Em andamento" value={stats.doing} icon={<Activity className="h-4 w-4 text-blue-500" />} />
-          <StatCard label="Bloqueadas" value={stats.blocked} icon={<AlertTriangle className="h-4 w-4 text-amber-500" />} />
-          <StatCard label="Último relatório" value={lastReport ? new Date(lastReport.created_at).toLocaleDateString("pt-BR") : "—"} icon={<FileText className="h-4 w-4 text-muted-foreground" />} />
+          <StatCard label="Concluídas hoje" value={stats.doneToday} />
+          <StatCard label="Em andamento" value={stats.doing} />
+          <StatCard label="Bloqueadas" value={stats.blocked} />
+          <StatCard label="Último relatório" value={lastReport ? new Date(lastReport.created_at).toLocaleDateString("pt-BR") : "—"} />
         </section>
 
         {/* Tendência */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base">Tendência de operação</CardTitle>
-            <ToggleGroup type="single" value={String(range)} onValueChange={(v) => v && setRange(Number(v) as Range)} size="sm">
-              {RANGES.map((r) => <ToggleGroupItem key={r} value={String(r)}>{r}d</ToggleGroupItem>)}
+        <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="flex flex-row items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Tendência de operação</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Concluídas por dia &amp; taxa de sucesso</p>
+            </div>
+            <ToggleGroup type="single" value={String(range)} onValueChange={(v) => v && setRange(Number(v) as Range)}
+              className="rounded-lg border border-border overflow-hidden gap-0">
+              {RANGES.map((r) => (
+                <ToggleGroupItem key={r} value={String(r)}
+                  className="h-7 rounded-none border-0 px-3 text-[11.5px] font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                  {r}d
+                </ToggleGroupItem>
+              ))}
             </ToggleGroup>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <ComposedChart data={trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" fontSize={11} />
-                <YAxis yAxisId="left" fontSize={11} allowDecimals={false} />
-                <YAxis yAxisId="right" orientation="right" domain={[0, 100]} fontSize={11} unit="%" />
-                <Tooltip />
-                <Bar yAxisId="left" dataKey="concluidas" name="Concluídas" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="taxa" name="Taxa de sucesso" stroke="#1f9d6b" strokeWidth={2} dot={{ r: 2 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart data={trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="barNavy" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0a4f95" />
+                  <stop offset="100%" stopColor="#02162a" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} unit="%" />
+              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", fontSize: 12, boxShadow: "var(--shadow-md)" }} />
+              <Bar yAxisId="left" dataKey="concluidas" name="Concluídas" fill="url(#barNavy)" radius={[6, 6, 2, 2]} maxBarSize={42} />
+              <Line yAxisId="right" type="monotone" dataKey="taxa" name="Taxa de sucesso" stroke="#1f9d6b" strokeWidth={2} dot={{ r: 2 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
 
         {/* Insights */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <InsightCard icon={<Clock className="h-4 w-4 text-blue-500" />} label="Tempo médio de execução" value={insights.avgTime} />
-          <InsightCard icon={<AlertOctagon className="h-4 w-4 text-rose-500" />} label="Rotina com mais falhas" value={insights.worstRoutine} />
-          <InsightCard icon={<UserRound className="h-4 w-4 text-emerald-500" />} label="Quem mais aciona" value={insights.topRequester} />
-          <InsightCard icon={<CalendarClock className="h-4 w-4 text-amber-500" />} label="Próxima rotina agendada" value={insights.nextRoutine} />
+          <InsightCard icon={<Clock className="h-4 w-4" strokeWidth={1.75} />} label="Tempo médio de execução" value={insights.avgTime} />
+          <InsightCard icon={<AlertOctagon className="h-4 w-4" strokeWidth={1.75} />} label="Rotina com mais falhas" value={insights.worstRoutine} />
+          <InsightCard icon={<UserRound className="h-4 w-4" strokeWidth={1.75} />} label="Quem mais aciona" value={insights.topRequester} />
+          <InsightCard icon={<CalendarClock className="h-4 w-4" strokeWidth={1.75} />} label="Próxima rotina agendada" value={insights.nextRoutine} />
         </section>
 
         {/* Tarefas */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Tarefas</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Tarefas</h2>
             <div className="flex items-center gap-2">
               <Select value={filter} onValueChange={(v) => setFilter(v as TaskFilter)}>
                 <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
@@ -277,54 +292,58 @@ export default function DashboardPage() {
               </Button>
             </div>
           </div>
-          <Card>
-            <CardContent className="p-0">
-              {visibleTasks.length === 0 ? (
-                <div className="py-10 text-center text-muted-foreground text-sm">Nenhuma tarefa nesta visão. Sincronize com o Notion para começar.</div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Título</TableHead><TableHead>Status</TableHead><TableHead>Prioridade</TableHead><TableHead className="text-right">Atualizada</TableHead>
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            {visibleTasks.length === 0 ? (
+              <div className="py-10 text-center text-muted-foreground text-sm">Nenhuma tarefa nesta visão. Sincronize com o Notion para começar.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/60 hover:bg-muted/60">
+                    <TableHead className="font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground">Título</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground">Status</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground">Prioridade</TableHead>
+                    <TableHead className="text-right font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground">Atualizada</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleTasks.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-medium">{t.title}</TableCell>
+                      <TableCell><StatusBadge status={t.status} /></TableCell>
+                      <TableCell><PriorityBadge priority={t.priority} /></TableCell>
+                      <TableCell className="text-right font-mono text-[11px] text-muted-foreground">{new Date(t.updated_at).toLocaleString("pt-BR")}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleTasks.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.title}</TableCell>
-                        <TableCell><StatusBadge status={t.status} /></TableCell>
-                        <TableCell><PriorityBadge priority={t.priority} /></TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">{new Date(t.updated_at).toLocaleString("pt-BR")}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3">Feed em tempo real</h2>
-          <Card>
-            <CardContent className="p-0">
-              {logs.length === 0 ? (
-                <div className="py-10 text-center text-muted-foreground text-sm">Sem eventos ainda. Quando o agente agir, aparece aqui ao vivo.</div>
-              ) : (
-                <ul className="divide-y">
-                  {logs.map((log) => (
-                    <li key={log.id} className="px-4 py-3 flex gap-3">
-                      <LogTypeBadge type={log.type} />
+          <h2 className="text-xl font-semibold tracking-tight mb-3">Feed em tempo real</h2>
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            {logs.length === 0 ? (
+              <div className="py-10 text-center text-muted-foreground text-sm">Sem eventos ainda. Quando o agente agir, aparece aqui ao vivo.</div>
+            ) : (
+              <ul className="px-4">
+                {logs.map((log) => {
+                  const { Icon, tile } = logVisual(log.type);
+                  return (
+                    <li key={log.id} className="flex gap-3 py-3 border-t border-border first:border-t-0">
+                      <div className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[7px] ${tile}`}>
+                        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm break-words">{log.content}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{new Date(log.created_at).toLocaleString("pt-BR")}</p>
+                        <p className="text-[12.5px] leading-[1.4] text-foreground break-words">{log.content}</p>
+                        <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{new Date(log.created_at).toLocaleString("pt-BR")}</p>
                       </div>
                     </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </section>
       </div>
     </AppShell>
@@ -353,7 +372,6 @@ function buildTrend(tasks: Task[], range: number) {
 }
 
 function buildInsights(tasks: Task[], senders: string[], routines: Routine[]) {
-  // tempo médio start→complete
   const durations = tasks
     .filter((t) => t.status === "done" && t.started_at && t.completed_at)
     .map((t) => new Date(t.completed_at!).getTime() - new Date(t.started_at!).getTime())
@@ -362,17 +380,14 @@ function buildInsights(tasks: Task[], senders: string[], routines: Routine[]) {
     ? formatDuration(durations.reduce((a, b) => a + b, 0) / durations.length)
     : "—";
 
-  // rotina com mais falhas (tasks source=routine bloqueadas, por título)
   const fails = new Map<string, number>();
   for (const t of tasks) if (t.source === "routine" && t.status === "blocked") fails.set(t.title, (fails.get(t.title) ?? 0) + 1);
   const worstRoutine = topEntry(fails) ?? "Nenhuma";
 
-  // quem mais aciona
   const reqs = new Map<string, number>();
   for (const s of senders) reqs.set(s, (reqs.get(s) ?? 0) + 1);
   const topRequester = topEntry(reqs) ?? "—";
 
-  // próxima rotina (menor schedule_time entre ativas)
   const next = routines
     .filter((r) => r.schedule_time)
     .sort((a, b) => (a.schedule_time! < b.schedule_time! ? -1 : 1))[0];
@@ -396,67 +411,67 @@ function formatDuration(ms: number): string {
 
 /* ---------- subcomponentes ---------- */
 
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
+function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <Card>
-      <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>{icon}
-      </CardHeader>
-      <CardContent><div className="text-2xl font-bold">{value}</div></CardContent>
-    </Card>
+    <div className="rounded-xl border bg-card p-3.5 shadow-sm">
+      <div className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.05em] text-muted-foreground leading-[1.3] min-h-[24px]">{label}</div>
+      <div className="mt-1.5 font-mono text-[25px] font-semibold tracking-[-0.02em] text-foreground leading-none">{value}</div>
+    </div>
   );
 }
 
 function InsightCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <Card>
-      <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>{icon}
-      </CardHeader>
-      <CardContent><div className="text-lg font-semibold truncate">{value}</div></CardContent>
-    </Card>
+    <div className="rounded-xl border bg-card p-3.5 shadow-sm">
+      <div className="mb-2.5 flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-muted text-muted-foreground">{icon}</div>
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.04em] text-muted-foreground">{label}</div>
+      <div className="mt-1 text-[16px] font-semibold tracking-[-0.01em] text-foreground truncate">{value}</div>
+    </div>
   );
 }
 
 function AgentStatusBadge({ active }: { active: boolean }) {
   return (
-    <Badge variant={active ? "default" : "secondary"} className={active ? "bg-emerald-500 hover:bg-emerald-500" : ""}>
-      <Activity className={`h-3 w-3 mr-1 ${active ? "animate-pulse" : ""}`} />
-      {active ? "Agente ativo" : "Pausado"}
-    </Badge>
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium"
+      style={{ color: active ? "hsl(var(--success))" : "hsl(var(--muted-foreground))" }}>
+      <span className={`h-1.5 w-1.5 rounded-full ${active ? "atlas-pulse" : ""}`}
+        style={{ background: active ? "#1f9d6b" : "hsl(var(--muted-foreground))" }} />
+      {active ? "Agente online" : "Pausado"}
+    </span>
   );
 }
 
+const PILL = "inline-flex items-center rounded-full border px-2 py-0.5 text-[10.5px] font-medium";
+
 function StatusBadge({ status }: { status: Task["status"] }) {
   const map: Record<Task["status"], { label: string; cls: string }> = {
-    todo: { label: "A fazer", cls: "bg-slate-200 text-slate-800" },
-    doing: { label: "Em curso", cls: "bg-blue-100 text-blue-800" },
-    done: { label: "Concluída", cls: "bg-emerald-100 text-emerald-800" },
-    blocked: { label: "Bloqueada", cls: "bg-amber-100 text-amber-900" },
+    todo: { label: "A fazer", cls: "bg-muted text-muted-foreground border-border" },
+    doing: { label: "Em curso", cls: "bg-info/15 text-info border-info/30" },
+    done: { label: "Concluída", cls: "bg-success/15 text-success border-success/30" },
+    blocked: { label: "Bloqueada", cls: "bg-warning/15 text-warning border-warning/30" },
   };
   const { label, cls } = map[status];
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${cls}`}>{label}</span>;
+  return <span className={`${PILL} ${cls}`}>{label}</span>;
 }
 
 function PriorityBadge({ priority }: { priority: Task["priority"] }) {
   const map: Record<Task["priority"], { label: string; cls: string }> = {
-    high: { label: "Alta", cls: "bg-rose-100 text-rose-800" },
-    medium: { label: "Média", cls: "bg-amber-100 text-amber-900" },
-    low: { label: "Baixa", cls: "bg-slate-100 text-slate-700" },
+    high: { label: "Alta", cls: "bg-warning/15 text-warning border-warning/30" },
+    medium: { label: "Média", cls: "bg-accent text-primary border-border" },
+    low: { label: "Baixa", cls: "bg-muted text-muted-foreground border-border" },
   };
   const { label, cls } = map[priority];
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${cls}`}>{label}</span>;
+  return <span className={`${PILL} ${cls}`}>{label}</span>;
 }
 
-function LogTypeBadge({ type }: { type: ExecutionLog["type"] }) {
-  const map: Record<ExecutionLog["type"], { label: string; cls: string }> = {
-    action: { label: "ACTION", cls: "bg-blue-100 text-blue-800" },
-    report: { label: "REPORT", cls: "bg-emerald-100 text-emerald-800" },
-    error: { label: "ERROR", cls: "bg-rose-100 text-rose-800" },
-    briefing: { label: "BRIEFING", cls: "bg-violet-100 text-violet-800" },
-  };
-  const { label, cls } = map[type] ?? { label: type.toUpperCase(), cls: "bg-slate-100 text-slate-700" };
-  return <span className={`inline-flex h-fit items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{label}</span>;
+function logVisual(type: ExecutionLog["type"]): { Icon: typeof Bell; tile: string } {
+  switch (type) {
+    case "action": return { Icon: Activity, tile: "bg-info/15 text-info" };
+    case "report": return { Icon: FileText, tile: "bg-success/15 text-success" };
+    case "error": return { Icon: AlertTriangle, tile: "bg-destructive/15 text-destructive" };
+    case "briefing": return { Icon: Bell, tile: "bg-accent text-primary" };
+    default: return { Icon: Bell, tile: "bg-muted text-muted-foreground" };
+  }
 }
 
 function filterLabel(f: TaskFilter): string {
@@ -472,7 +487,7 @@ function filterLabel(f: TaskFilter): string {
 function EmptyState({ title, message, actionLabel, actionHref }: { title: string; message: string; actionLabel: string; actionHref: string }) {
   return (
     <div className="space-y-4">
-      <h1 className="text-3xl font-bold">{title}</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
       <p className="text-muted-foreground">{message}</p>
       <Button asChild><a href={actionHref}>{actionLabel}</a></Button>
     </div>
