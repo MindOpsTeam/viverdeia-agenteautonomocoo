@@ -161,7 +161,7 @@ export default function DemonstrationSettings() {
               </CardDescription>
             </div>
             {!loading && (hasDemo
-              ? <Badge className="bg-emerald-500 hover:bg-emerald-500">Carregados</Badge>
+              ? <Badge className="bg-success/100 hover:bg-success/100">Carregados</Badge>
               : <Badge variant="secondary">Sem dados</Badge>)}
           </div>
         </CardHeader>

@@ -215,7 +215,7 @@ export default function CredentialsSettings() {
                 />
               </div>
               {status && (
-                <div className={`flex items-center gap-2 text-xs ${status.ok ? "text-emerald-600" : "text-destructive"}`}>
+                <div className={`flex items-center gap-2 text-xs ${status.ok ? "text-success" : "text-destructive"}`}>
                   {status.ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                   {status.ok ? "Válida" : status.error}
                 </div>
@@ -311,7 +311,7 @@ function GithubVpsSection({ companyId }: { companyId: string }) {
   };
 
   const StatusLine = ({ s }: { s?: { ok: boolean; error?: string } }) => s ? (
-    <div className={`flex items-center gap-2 text-xs ${s.ok ? "text-emerald-600" : "text-destructive"}`}>
+    <div className={`flex items-center gap-2 text-xs ${s.ok ? "text-success" : "text-destructive"}`}>
       {s.ok ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}{s.ok ? "Conexão OK" : s.error}
     </div>
   ) : null;
