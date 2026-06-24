@@ -528,14 +528,74 @@ export type Database = {
           },
         ]
       }
+      process_imports: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          created_by: string | null
+          error: string | null
+          id: string
+          kind: string
+          progress_message: string | null
+          result: Json | null
+          source_name: string | null
+          status: string
+          storage_path: string | null
+          transcript: string | null
+          updated_at: string | null
+          url: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind: string
+          progress_message?: string | null
+          result?: Json | null
+          source_name?: string | null
+          status?: string
+          storage_path?: string | null
+          transcript?: string | null
+          updated_at?: string | null
+          url?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          progress_message?: string | null
+          result?: Json | null
+          source_name?: string | null
+          status?: string
+          storage_path?: string | null
+          transcript?: string | null
+          updated_at?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_imports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_suggestions: {
         Row: {
           company_id: string
           created_at: string | null
           evidence: Json | null
           id: string
-          process_id: string
+          process_id: string | null
           status: string
+          suggested_process: Json | null
           suggested_step: Json
           updated_at: string | null
         }
@@ -544,8 +604,9 @@ export type Database = {
           created_at?: string | null
           evidence?: Json | null
           id?: string
-          process_id: string
+          process_id?: string | null
           status?: string
+          suggested_process?: Json | null
           suggested_step: Json
           updated_at?: string | null
         }
@@ -554,8 +615,9 @@ export type Database = {
           created_at?: string | null
           evidence?: Json | null
           id?: string
-          process_id?: string
+          process_id?: string | null
           status?: string
+          suggested_process?: Json | null
           suggested_step?: Json
           updated_at?: string | null
         }
@@ -583,6 +645,8 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
+          import_origin: string | null
+          import_transcript: string | null
           name: string
           source: string | null
           status: string
@@ -597,6 +661,8 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          import_origin?: string | null
+          import_transcript?: string | null
           name: string
           source?: string | null
           status?: string
@@ -611,6 +677,8 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          import_origin?: string | null
+          import_transcript?: string | null
           name?: string
           source?: string | null
           status?: string
