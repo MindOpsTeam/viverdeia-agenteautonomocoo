@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const DOT_COLOR: Record<AgentStatus, string> = {
-  online: "bg-emerald-500",
-  offline: "bg-rose-500",
-  pending: "bg-amber-500",
+  online: "bg-success/100",
+  offline: "bg-destructive/100",
+  pending: "bg-warning/100",
   loading: "bg-slate-400",
 };
 
