@@ -511,6 +511,17 @@ export default function OnboardingPage() {
             {step.id === "github" && (
               <>
                 <StepTitle title="GitHub (opcional)" desc="Repositório privado onde o Atlas versiona as skills compiladas. Pode pular e configurar depois." />
+                <Tutorial
+                  title="Como obter Repo URL e Personal Access Token"
+                  steps={[
+                    "Crie (ou escolha) um repositório privado em github.com/new — copie a URL completa (ex.: https://github.com/empresa/atlas-skills).",
+                    "No GitHub, clique na sua foto → Settings → Developer settings (no rodapé).",
+                    "Vá em Personal access tokens → Fine-grained tokens → Generate new token.",
+                    "Em \"Repository access\" selecione apenas o repositório acima.",
+                    "Em \"Repository permissions\" dê Contents: Read and write e Metadata: Read. Gere e copie o token github_pat_...",
+                  ]}
+                  link={{ href: "https://github.com/settings/personal-access-tokens/new", label: "Criar token no GitHub" }}
+                />
                 <Field label="Repo URL"><Input value={form.github_repo_url} onChange={onInput("github_repo_url")} placeholder="https://github.com/empresa/atlas-skills" /></Field>
                 <Field label="PAT (fine-grained)" ok={tested.github}>
                   <div className="flex gap-2">
