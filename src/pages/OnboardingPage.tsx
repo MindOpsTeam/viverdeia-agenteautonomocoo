@@ -51,7 +51,7 @@ const DEFAULT_GUARDRAILS = [
 ];
 
 type Form = {
-  name: string; timezone: string;
+  name: string; timezone: string; company_website: string;
   anthropic_key: string;
   github_repo_url: string; github_pat: string;
   openclaw_workspace_url: string; openclaw_token: string;
@@ -70,7 +70,7 @@ type Form = {
 };
 
 const initialForm: Form = {
-  name: "", timezone: "America/Sao_Paulo",
+  name: "", timezone: "America/Sao_Paulo", company_website: "",
   anthropic_key: "",
   github_repo_url: "", github_pat: "",
   openclaw_workspace_url: "", openclaw_token: "",
@@ -94,7 +94,48 @@ export default function OnboardingPage() {
   const [stepIdx, setStepIdx] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [siteFilled, setSiteFilled] = useState(false);
   const hydrated = useRef(false);
+  const siteAppliedRef = useRef(false);
+
+  // Pré-preenche identidade + guardrails a partir da análise do site (uma vez).
+  const applySiteIdentity = (si: any) => {
+    if (!si || siteAppliedRef.current) return;
+    siteAppliedRef.current = true;
+    setForm((f) => ({
+      ...f,
+      agent_name: f.agent_name && f.agent_name !== "Atlas" ? f.agent_name : (si.agent_name || f.agent_name),
+      tone: ["direct", "formal", "informal"].includes(si.communication_tone) ? si.communication_tone : f.tone,
+      mission: f.mission || si.mission || "",
+      presentation: f.presentation || si.presentation || "",
+      guardrails: Array.isArray(si.directives) && si.directives.length ? si.directives.slice(0, 3) : f.guardrails,
+    }));
+    setSiteFilled(true);
+  };
+
+  // Análise do site em background (disparada após validar a Anthropic na etapa 2).
+  const analyzeWebsite = async () => {
+    const cid = ob.companyId;
+    if (!cid || !form.company_website.trim()) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("cerebro-ai", {
+        body: {
+          company_id: cid, mode: "identity",
+          payload: {
+            website_url: form.company_website.trim(),
+            about_company: `Empresa: ${form.name}.`,
+            about_agent: `Nome do agente: ${form.agent_name}.`,
+          },
+        },
+      });
+      if (error) return;
+      const r = (data as any)?.result;
+      if (!r) return;
+      await ob.mergeDraft({ site_identity: r });
+      applySiteIdentity(r);
+      toast.success("Identidade sugerida a partir do seu site — revise na etapa de Identidade.");
+    } catch (_) { /* silencioso: roda em background */ }
+  };
 
   // ---------- Reidratação ao retomar ----------
   useEffect(() => {
@@ -111,6 +152,7 @@ export default function OnboardingPage() {
       ...f,
       name: ob.snapshot.companyName || f.name,
       timezone: cfg.timezone || f.timezone,
+      company_website: (ob.draft as any)?.company_website || f.company_website,
       github_repo_url: cfg.github_repo_url || "",
       openclaw_workspace_url: cfg.openclaw_workspace_url || "",
       backlog_provider: cfg.backlog_provider || "notion",
@@ -128,6 +170,9 @@ export default function OnboardingPage() {
       notion: !!draftVal.notion || (creds.includes("notion") && Array.isArray(cfg.notion_database_ids) && cfg.notion_database_ids.length > 0),
       discord: !!draftVal.discord || (creds.includes("discord") && !!cfg.discord_channel_id),
     });
+
+    const si = (ob.draft as any)?.site_identity;
+    if (si) applySiteIdentity(si);
 
     const resume = Math.min(Math.max((ob.currentStep ?? 1) - 1, 0), STEPS.length - 1);
     setStepIdx(resume);
@@ -175,6 +220,10 @@ export default function OnboardingPage() {
       await ob.mergeDraft({ validations: { anthropic: true } });
       setTested((t) => ({ ...t, anthropic: true }));
       toast.success("Chave Anthropic validada e salva.");
+      // Dispara a análise do site em background (agora que a chave existe no Vault).
+      if (form.company_website.trim() && !(ob.draft as any)?.site_identity && !siteAppliedRef.current) {
+        void analyzeWebsite();
+      }
     } catch (e: any) { toast.error(e?.message ?? "Erro ao validar"); }
     finally { setBusy(null); }
   };
@@ -317,6 +366,7 @@ export default function OnboardingPage() {
         const cid = await ob.ensureCompany(form.name, form.timezone);
         if (!cid) throw new Error("Falha ao salvar a empresa");
         await ob.patchConfig({ timezone: form.timezone });
+        await ob.mergeDraft({ company_website: form.company_website.trim() });
         break;
       }
       case "github": {
@@ -476,6 +526,12 @@ export default function OnboardingPage() {
                     <SelectContent>{TIMEZONES.map((tz) => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}</SelectContent>
                   </Select>
                 </Field>
+                <div className="space-y-1.5">
+                  <Field label="Site da empresa">
+                    <Input value={form.company_website} onChange={onInput("company_website")} placeholder="https://suaempresa.com.br" />
+                  </Field>
+                  <p className="text-xs text-muted-foreground">Opcional — usamos para sugerir a identidade do Atlas automaticamente.</p>
+                </div>
               </>
             )}
 
@@ -703,6 +759,7 @@ export default function OnboardingPage() {
             {step.id === "identidade" && (
               <>
                 <StepTitle title="Identidade do Atlas" desc="Como o agente se chama e fala com o time. Você pode refinar depois no Cérebro." />
+                {siteFilled && <Badge className="bg-blue-600 hover:bg-blue-600">Gerado a partir do seu site · Revise antes de continuar</Badge>}
                 <div className="flex justify-end">
                   <Button variant="secondary" size="sm" onClick={fillIdentityWithAI} disabled={busy === "ai"}>
                     {busy === "ai" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Wand2 className="h-4 w-4 mr-1" />}
@@ -732,6 +789,7 @@ export default function OnboardingPage() {
             {step.id === "guardrails" && (
               <>
                 <StepTitle title="Guardrails" desc="Regras que o Atlas sempre respeita. Edite as sugestões ou escreva as suas." />
+                {siteFilled && <Badge className="bg-blue-600 hover:bg-blue-600">Sugerido com base no seu site · Edite como preferir</Badge>}
                 {form.guardrails.map((g, i) => (
                   <Field key={i} label={`Guardrail ${i + 1}`}>
                     <Textarea value={g} rows={2} onChange={(e) =>

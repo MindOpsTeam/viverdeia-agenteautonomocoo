@@ -36,6 +36,32 @@ Responda SEMPRE em JSON estrito, sem markdown, neste formato:
 { "content": "a diretriz em uma frase imperativa" }
 `.trim();
 
+// Busca o conteúdo textual de um site (best-effort) para alimentar a sugestão de identidade.
+async function fetchWebsiteText(rawUrl: string): Promise<string> {
+  let url: URL;
+  try { url = new URL(rawUrl); } catch { return ""; }
+  if (!/^https?:$/.test(url.protocol)) return "";
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; AtlasBot/1.0)" },
+      redirect: "follow",
+    });
+    if (!res.ok) return "";
+    const html = await res.text();
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&[a-z]+;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return text.slice(0, 15000);
+  } catch (_) {
+    return "";
+  }
+}
+
 async function callClaude(anthropicKey: string, system: string, userPrompt: string): Promise<any> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -157,8 +183,10 @@ Deno.serve(async (req) => {
 
     let result: any;
     if (mode === "identity") {
+      const siteText = payload?.website_url ? await fetchWebsiteText(payload.website_url) : "";
       const userPrompt =
         `Sobre a empresa (o que faz, missão, público-alvo, cases/resultados):\n${payload?.about_company ?? "(não informado)"}\n\n` +
+        (siteText ? `Conteúdo extraído do site da empresa (${payload.website_url}):\n${siteText}\n\n` : "") +
         `Sobre o agente (como deve agir):\n${payload?.about_agent ?? "(não informado)"}\n\n` +
         `Proponha a identidade em JSON estrito.`;
       const parsed = await callClaude(anthropicKey, IDENTITY_SYSTEM, userPrompt);
