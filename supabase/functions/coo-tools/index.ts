@@ -1,3 +1,4 @@
+// Atlas COO - coo-tools v1
 // coo-tools — API que o agente Atlas (VPS) usa para ler/escrever no painel.
 // POST /coo-tools, auth: Authorization: Bearer {COO_TOOLS_SECRET}.
 // Escopo por empresa via instance_id (do .env da VPS) → atlas_instances → companies.
