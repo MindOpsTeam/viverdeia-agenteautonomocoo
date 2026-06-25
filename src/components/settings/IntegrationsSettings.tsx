@@ -114,20 +114,26 @@ export default function IntegrationsSettings() {
   const [addDbId, setAddDbId] = useState("");
   const [installCmd, setInstallCmd] = useState<string | null>(null);
   const [installBusy, setInstallBusy] = useState(false);
+  const [instance, setInstance] = useState<{ ingress_url: string | null; hooks_token: string | null } | null>(null);
 
   useEffect(() => {
     (async () => {
       const { data: company } = await sb().from("companies").select("id").maybeSingle();
       if (!company) { setLoading(false); return; }
       setCompanyId(company.id);
-      const [{ data: creds }, { data: cfg }] = await Promise.all([
+      const [{ data: creds }, { data: cfg }, { data: inst }] = await Promise.all([
         sb().from("credentials").select("service").eq("company_id", company.id),
         sb().from("agent_config")
           .select("openclaw_workspace_url, github_repo_url, discord_server_id, discord_channel_id, discord_public_key, notion_database_ids")
           .eq("company_id", company.id).maybeSingle(),
+        // Instância registrada pelo instance-register na VPS (RLS: owner lê só a própria).
+        sb().from("atlas_instances").select("ingress_url, hooks_token").maybeSingle(),
       ]);
       setConfigured(new Set((creds ?? []).map((c: any) => c.service)));
-      setOpenclawUrl(cfg?.openclaw_workspace_url ?? "");
+      setInstance(inst ?? null);
+      // Se a instância já foi registrada, preenche URL/token automaticamente e marca como Ativo.
+      setOpenclawUrl(inst?.ingress_url || (cfg?.openclaw_workspace_url ?? ""));
+      if (inst?.hooks_token) setToken((t) => ({ ...t, openclaw: inst.hooks_token as string }));
       setGithubRepoUrl(cfg?.github_repo_url ?? "");
       setDiscordServerId(cfg?.discord_server_id ?? "");
       setDiscordChannelId(cfg?.discord_channel_id ?? "");
@@ -237,6 +243,7 @@ export default function IntegrationsSettings() {
 
   const statusOf = (svc: Svc, ready: boolean): "active" | "error" | "empty" => {
     if (validations[svc]?.ok === false) return "error";
+    if (svc === "openclaw" && instance) return "active";
     if (configured.has(svc) && ready) return "active";
     if (configured.has(svc)) return "active";
     return "empty";
@@ -283,7 +290,7 @@ export default function IntegrationsSettings() {
 
   const notionActive = configured.has("notion");
   const discordReady = configured.has("discord") && !!discordChannelId;
-  const openclawReady = configured.has("openclaw") && !!openclawUrl.trim();
+  const openclawReady = !!instance || (configured.has("openclaw") && !!openclawUrl.trim());
 
   const cards: { svc: Svc; icon: string; title: string; desc: string; summary: string; action: string; ready: boolean }[] = [
     { svc: "anthropic", icon: "🔮", title: "Anthropic", desc: "Motor de IA do Atlas", summary: configured.has("anthropic") ? "API Key configurada" : "Sem chave", action: configured.has("anthropic") ? "Trocar" : "Configurar", ready: true },
