@@ -8,10 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Bot, Loader2, Send, User } from "lucide-react";
+import { Bot, Loader2, Send, User, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { MarkdownMessage } from "@/components/chat/MarkdownMessage";
+import { useInstanceStatus } from "@/hooks/useInstanceStatus";
 
 const sb = () => supabase as any;
 
@@ -26,7 +27,18 @@ const TYPE_LABEL: Record<string, string> = {
   command: "Comando", response: "Resposta", report: "Relatório", alert: "Alerta",
 };
 
-interface ChatTurn { role: "user" | "assistant"; content: string }
+interface ChatTurn { role: "user" | "assistant"; content: string; action?: boolean }
+
+function AgentDot() {
+  const { loading, online } = useInstanceStatus();
+  if (loading) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={`h-2 w-2 rounded-full ${online ? "bg-success animate-pulse" : "bg-muted-foreground/40"}`} />
+      {online ? "Atlas online" : "Atlas offline"}
+    </span>
+  );
+}
 interface ChannelMessage {
   id: string;
   channel_name: string;
@@ -68,9 +80,12 @@ export default function ConversarPage() {
   return (
     <AppShell>
       <div className="space-y-6 max-w-4xl">
-        <header>
-          <h1 className="text-3xl font-bold">Conversar</h1>
-          <p className="text-sm text-muted-foreground mt-1">Atlas · responde aqui, no Discord e no Slack.</p>
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold">Conversar</h1>
+            <p className="text-sm text-muted-foreground mt-1">Atlas · responde aqui, no Discord e no Slack.</p>
+          </div>
+          <div className="pt-1"><AgentDot /></div>
         </header>
 
         <Tabs defaultValue="chat">
@@ -109,7 +124,7 @@ function ChatDireto({ companyId }: { companyId: string }) {
       toast.error((data as any)?.error ?? "Falha ao falar com o agente");
       return;
     }
-    setMessages((prev) => [...prev, { role: "assistant", content: (data as any).reply }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: (data as any).reply, action: !!(data as any).action }]);
   };
 
   return (
@@ -124,6 +139,9 @@ function ChatDireto({ companyId }: { companyId: string }) {
           <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "assistant" && <div className="h-7 w-7 rounded-full bg-info text-white flex items-center justify-center shrink-0"><Bot className="h-4 w-4" /></div>}
             <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted"}`}>
+              {m.action && (
+                <Badge className="mb-1.5 bg-info hover:bg-info text-white text-[10px]"><Zap className="h-3 w-3 mr-0.5" /> Despachado para o Atlas</Badge>
+              )}
               {m.role === "assistant" ? <MarkdownMessage content={m.content} /> : m.content}
             </div>
             {m.role === "user" && <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0"><User className="h-4 w-4" /></div>}
