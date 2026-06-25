@@ -151,6 +151,27 @@ export type Database = {
         }
         Relationships: []
       }
+      atlas_settings: {
+        Row: {
+          brain_repo_url: string | null
+          created_at: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          brain_repo_url?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          brain_repo_url?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       channel_messages: {
         Row: {
           channel_name: string
@@ -436,6 +457,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      installer_tokens: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          owner_user_id: string | null
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          owner_user_id?: string | null
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          owner_user_id?: string | null
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: []
       }
       knowledge_files: {
         Row: {
