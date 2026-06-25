@@ -1,0 +1,2 @@
+# Força LF para scripts shell independente do OS
+*.sh text eol=lf
