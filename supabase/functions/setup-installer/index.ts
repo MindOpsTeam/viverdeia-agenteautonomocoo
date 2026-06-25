@@ -13,7 +13,7 @@ import { adminClient } from "../_shared/panel.ts";
 import { getSecret } from "../_shared/secrets.ts";
 
 const SETUP_ATLAS_URL = Deno.env.get("SETUP_ATLAS_URL") ??
-  "https://raw.githubusercontent.com/MindOpsTeam/via-agente-autonomo-chief-operations-officer/main/install/setup-atlas.sh";
+  "https://raw.githubusercontent.com/MindOpsTeam/viverdeia-agenteautonomocoo/main/install/setup-atlas.sh";
 
 function shEscape(v: string): string {
   return `'${String(v).replace(/'/g, "'\\''")}' `;
