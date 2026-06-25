@@ -1,3 +1,4 @@
+// Atlas COO - instance register v1
 /**
  * POST /instance-register
  * Público (verify_jwt=false). Chamado pelo setup-atlas.sh na VPS após instalar o OpenClaw,
