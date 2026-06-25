@@ -151,6 +151,42 @@ export type Database = {
         }
         Relationships: []
       }
+      atlas_instances: {
+        Row: {
+          agent_type: string | null
+          hooks_token: string | null
+          hostname: string | null
+          id: string
+          ingress_url: string | null
+          openclaw_dashboard_token: string | null
+          openclaw_version: string | null
+          owner_user_id: string | null
+          registered_at: string | null
+        }
+        Insert: {
+          agent_type?: string | null
+          hooks_token?: string | null
+          hostname?: string | null
+          id?: string
+          ingress_url?: string | null
+          openclaw_dashboard_token?: string | null
+          openclaw_version?: string | null
+          owner_user_id?: string | null
+          registered_at?: string | null
+        }
+        Update: {
+          agent_type?: string | null
+          hooks_token?: string | null
+          hostname?: string | null
+          id?: string
+          ingress_url?: string | null
+          openclaw_dashboard_token?: string | null
+          openclaw_version?: string | null
+          owner_user_id?: string | null
+          registered_at?: string | null
+        }
+        Relationships: []
+      }
       atlas_settings: {
         Row: {
           brain_repo_url: string | null
@@ -1054,6 +1090,7 @@ export type Database = {
     Functions: {
       ensure_auth_trigger: { Args: never; Returns: Json }
       get_handle_new_user_def: { Args: never; Returns: string }
+      get_secret: { Args: { secret_name: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
