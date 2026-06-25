@@ -135,12 +135,12 @@ Deno.serve(async (req) => {
         content: `Rotina disparada: ${r.name}`,
       });
 
-      // Executa a tarefa criada (best-effort, assíncrono).
+      // Despacha via coo-orchestrator (VPS OpenClaw; cai em execute-task se não houver instância).
       if (task?.id) {
-        fetch(`${projectUrl}/functions/v1/execute-task`, {
+        fetch(`${projectUrl}/functions/v1/coo-orchestrator`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
-          body: JSON.stringify({ task_id: (task as any).id }),
+          body: JSON.stringify({ type: "task", task_id: (task as any).id }),
         }).catch(() => { /* ignore */ });
       }
 

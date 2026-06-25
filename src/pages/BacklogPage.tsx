@@ -9,9 +9,10 @@ import {
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
-import { Bot, CheckCircle2, ExternalLink, Loader2, RefreshCw, User } from "lucide-react";
+import { Bot, CheckCircle2, ExternalLink, Loader2, Play, RefreshCw, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type TaskStatus = "todo" | "doing" | "done" | "blocked";
 
@@ -58,6 +59,7 @@ function isAgent(assigned: string | null): boolean {
 const sb = () => supabase as any;
 
 export default function BacklogPage() {
+  const { isAdmin } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,7 +204,7 @@ export default function BacklogPage() {
         </div>
       </div>
 
-      <TaskDrawer task={selected} onClose={() => setSelected(null)} />
+      <TaskDrawer task={selected} isAdmin={isAdmin} onClose={() => setSelected(null)} />
     </AppShell>
   );
 }
@@ -237,9 +239,21 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
   );
 }
 
-function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
+function TaskDrawer({ task, isAdmin, onClose }: { task: Task | null; isAdmin?: boolean; onClose: () => void }) {
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [running, setRunning] = useState(false);
+
+  const runTask = async () => {
+    if (!task) return;
+    setRunning(true);
+    const { data, error } = await supabase.functions.invoke("coo-orchestrator", { body: { type: "task", task_id: task.id } });
+    setRunning(false);
+    if (error || (data as any)?.ok === false) { toast.error((data as any)?.error ?? "Falha ao despachar"); return; }
+    const where = (data as any)?.dispatched === "vps" ? "enviado à instância OpenClaw" : "executando (fallback no painel)";
+    toast.success(`Tarefa despachada — ${where}.`);
+    onClose();
+  };
 
   useEffect(() => {
     if (!task) { setLogs([]); return; }
@@ -269,6 +283,13 @@ function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void 
 
             <div className="mt-4 space-y-4 text-sm">
               {task.description && <p className="text-muted-foreground">{task.description}</p>}
+
+              {isAdmin && (task.status === "todo" || task.status === "blocked") && (
+                <Button size="sm" onClick={runTask} disabled={running}>
+                  {running ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+                  Executar agora
+                </Button>
+              )}
 
               {task.status === "blocked" && task.block_reason && (
                 <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-warning">
