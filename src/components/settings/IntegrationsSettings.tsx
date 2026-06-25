@@ -16,7 +16,6 @@ import { toast } from "sonner";
 
 const sb = () => supabase as any;
 const DISCORD_INTERACTIONS_URL = "https://pmrzuqocgefrlookjnxh.supabase.co/functions/v1/discord-webhook";
-const OPENCLAW_INSTALL_CMD = "curl -fsSL https://viverdeia.ai/install/atlas | sh";
 
 type Svc = "anthropic" | "notion" | "discord" | "github" | "openclaw";
 type NotionType = "backlog" | "knowledge" | "ignore";
@@ -113,6 +112,8 @@ export default function IntegrationsSettings() {
   const [discordPublicKey, setDiscordPublicKey] = useState("");
   const [notionDbs, setNotionDbs] = useState<NotionDb[]>([]);
   const [addDbId, setAddDbId] = useState("");
+  const [installCmd, setInstallCmd] = useState<string | null>(null);
+  const [installBusy, setInstallBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -137,6 +138,12 @@ export default function IntegrationsSettings() {
   }, []);
 
   const toggle = (svc: Svc) => setExpanded((s) => { const n = new Set(s); n.has(svc) ? n.delete(svc) : n.add(svc); return n; });
+  // Ao abrir o card VPS+OpenClaw, já gera o comando de instalação (token one-time).
+  const onAction = (svc: Svc) => {
+    const willOpen = !expanded.has(svc);
+    toggle(svc);
+    if (svc === "openclaw" && willOpen && !installCmd) void generateInstall();
+  };
   const setTok = (svc: Svc, v: string) => setToken((t) => ({ ...t, [svc]: v }));
   const patchConfig = (patch: Record<string, unknown>) => companyId && sb().from("agent_config").update(patch).eq("company_id", companyId);
 
@@ -235,8 +242,22 @@ export default function IntegrationsSettings() {
     return "empty";
   };
 
+  // Gera um comando de instalação único via onboarding-issue-token (POST com o JWT do usuário).
+  const generateInstall = async () => {
+    setInstallBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("onboarding-issue-token", { body: {} });
+      if (error) { toast.error("Falha ao gerar o comando de instalação"); return; }
+      const cmd = (data as any)?.install_command;
+      if (!cmd) { toast.error((data as any)?.error ?? "Resposta inválida do servidor"); return; }
+      setInstallCmd(cmd);
+      toast.success("Comando gerado — copie e cole na sua VPS.");
+    } catch (e: any) { toast.error(e?.message ?? "Erro ao gerar o comando"); }
+    finally { setInstallBusy(false); }
+  };
   const copyInstall = async () => {
-    try { await navigator.clipboard.writeText(OPENCLAW_INSTALL_CMD); toast.success("Comando copiado"); }
+    if (!installCmd) return;
+    try { await navigator.clipboard.writeText(installCmd); toast.success("Comando copiado"); }
     catch { toast.error("Não foi possível copiar"); }
   };
 
@@ -288,7 +309,7 @@ export default function IntegrationsSettings() {
                   </div>
                   <p className="text-xs text-muted-foreground">{c.desc} · <span className="text-foreground/70">{c.summary}</span></p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => toggle(c.svc)}>
+                <Button variant="outline" size="sm" onClick={() => onAction(c.svc)}>
                   {c.action} <ChevronDown className={`h-3.5 w-3.5 ml-1 transition-transform ${open ? "rotate-180" : ""}`} />
                 </Button>
               </div>
@@ -386,12 +407,21 @@ export default function IntegrationsSettings() {
                     <>
                       {!openclawReady && (
                         <div className="rounded-lg border bg-muted/40 p-3 space-y-2 text-xs text-muted-foreground">
-                          <p>Para usar o OpenClaw, instale na sua VPS:</p>
-                          <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
-                            <code className="flex-1 font-mono text-foreground break-all">{OPENCLAW_INSTALL_CMD}</code>
-                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyInstall}><Copy className="h-3.5 w-3.5" /></Button>
-                          </div>
-                          <p>Após instalar, cole a URL e o token abaixo.</p>
+                          <p>Para usar o OpenClaw, instale na sua VPS. Gere um comando único e cole-o na VPS via SSH:</p>
+                          {installCmd ? (
+                            <>
+                              <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+                                <code className="flex-1 font-mono text-foreground break-all">{installCmd}</code>
+                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyInstall}><Copy className="h-3.5 w-3.5" /></Button>
+                              </div>
+                              <p>Token de uso único (expira em ~30 min). Após instalar, cole a URL e o token abaixo.</p>
+                            </>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={generateInstall} disabled={installBusy}>
+                              {installBusy ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                              Gerar comando de instalação
+                            </Button>
+                          )}
                         </div>
                       )}
                       <div className="space-y-1.5"><Label className="text-xs">URL da instância</Label><Input value={openclawUrl} onChange={(e) => setOpenclawUrl(e.target.value)} placeholder="https://workspace.openclaw.com" /></div>
