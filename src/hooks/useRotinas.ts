@@ -15,6 +15,7 @@ export interface Routine {
   instruction: string;
   target_system: string | null;
   status: RoutineStatus;
+  approved?: boolean | null;
   requested_by: string | null;
   last_run_at: string | null;
   last_run_status: string | null;
@@ -73,6 +74,16 @@ export function useRotinas() {
     setRoutines((prev) => prev.map((r) => (r.id === id ? (data as Routine) : r)));
   }, []);
 
+  // D3: aprova a rotina (status active + approved) e despacha imediatamente via coo-orchestrator.
+  const approveAndRun = useCallback(async (id: string) => {
+    const { data, error } = await sb().from("routines").update({ status: "active", approved: true }).eq("id", id).select("*").maybeSingle();
+    if (error) { toast.error(`Falha ao aprovar: ${error.message}`); return; }
+    setRoutines((prev) => prev.map((r) => (r.id === id ? (data as Routine) : r)));
+    const { data: res, error: e2 } = await supabase.functions.invoke("coo-orchestrator", { body: { type: "routine", routine_id: id } });
+    if (e2 || (res as any)?.ok === false) toast.error((res as any)?.error ?? "Rotina aprovada, mas falhou ao despachar.");
+    else toast.success("Rotina aprovada e despachada para o Atlas.");
+  }, []);
+
   const deleteRoutine = useCallback(async (id: string) => {
     const { error } = await sb().from("routines").delete().eq("id", id);
     if (error) { toast.error(`Falha: ${error.message}`); return; }
@@ -82,7 +93,7 @@ export function useRotinas() {
   const pending = routines.filter((r) => r.status === "pending_approval");
   const managed = routines.filter((r) => r.status === "active" || r.status === "paused");
 
-  return { loading, companyId, routines, pending, managed, createRoutine, setStatus, deleteRoutine };
+  return { loading, companyId, routines, pending, managed, createRoutine, setStatus, approveAndRun, deleteRoutine };
 }
 
 export type RotinasState = ReturnType<typeof useRotinas>;

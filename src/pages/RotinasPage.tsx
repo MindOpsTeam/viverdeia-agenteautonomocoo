@@ -13,7 +13,7 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Check, Info, Plus, Trash2, X } from "lucide-react";
+import { Check, Info, Plus, Trash2, X, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useRotinas, FREQUENCY_LABEL, WEEKDAYS,
@@ -25,6 +25,18 @@ function scheduleLabel(r: Routine): string {
   if (r.frequency === "daily") return `Diária ${time}`;
   if (r.frequency === "weekly") return `Semanal · ${WEEKDAYS[r.schedule_day ?? 1] ?? ""} ${time}`;
   return `Mensal · dia ${r.schedule_day ?? 1} ${time}`;
+}
+
+const ROUTINE_BADGE: Record<string, { label: string; cls: string }> = {
+  pending_approval: { label: "Pendente", cls: "bg-warning hover:bg-warning text-white" },
+  active: { label: "Ativa", cls: "bg-success hover:bg-success text-white" },
+  paused: { label: "Pausada", cls: "bg-muted hover:bg-muted text-foreground" },
+  rejected: { label: "Rejeitada", cls: "bg-destructive hover:bg-destructive text-white" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const b = ROUTINE_BADGE[status] ?? { label: status, cls: "bg-muted text-foreground" };
+  return <Badge className={`text-[10px] ${b.cls}`}>{b.label}</Badge>;
 }
 
 export default function RotinasPage() {
@@ -77,15 +89,18 @@ export default function RotinasPage() {
                 <div key={r.id} className="rounded-xl border border-warning/30 bg-warning/10 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium">{r.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{r.name}</p>
+                        <StatusBadge status={r.status} />
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{scheduleLabel(r)} · {r.target_system ?? "—"}</p>
                       {r.requested_by && <Badge variant="secondary" className="mt-2 text-[10px]">Solicitada por {r.requested_by}</Badge>}
                       <p className="text-sm mt-2">{r.instruction}</p>
                     </div>
                     {isAdmin && (
                       <div className="flex gap-2">
-                        <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => state.setStatus(r.id, "active")}>
-                          <Check className="h-4 w-4 mr-1" /> Aprovar
+                        <Button size="sm" className="bg-success hover:bg-success/90 text-white" onClick={() => state.approveAndRun(r.id)}>
+                          <Zap className="h-4 w-4 mr-1" /> Aprovar e executar
                         </Button>
                         <Button size="sm" variant="outline" className="text-destructive border-destructive/40" onClick={() => state.setStatus(r.id, "rejected")}>
                           <X className="h-4 w-4 mr-1" /> Rejeitar
@@ -129,6 +144,7 @@ function RoutineRow({ routine, state, isAdmin }: { routine: Routine; state: Roti
         <div className="flex items-center gap-2">
           <p className="font-medium">{routine.name}</p>
           <Badge variant="outline" className="text-[10px]">{FREQUENCY_LABEL[routine.frequency]}</Badge>
+          <StatusBadge status={routine.status} />
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">
           {scheduleLabel(routine)} · {routine.target_system ?? "—"}

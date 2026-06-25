@@ -141,6 +141,27 @@ async function checkCommandPermission(
   return { allowed };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Quem pode aprovar rotinas: "authorizes_approvals" ou "can_command".
+function canApprove(member: any | null): boolean {
+  if (!member) return false;
+  const p: string[] = Array.isArray(member.permissions) ? member.permissions : [];
+  return p.includes("authorizes_approvals") || p.includes("can_command");
+}
+
+async function dispatchOrchestrator(
+  url: string, serviceKey: string, body: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await fetch(`${url}/functions/v1/coo-orchestrator`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+      body: JSON.stringify(body),
+    });
+  } catch { /* best-effort */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -346,6 +367,71 @@ Deno.serve(async (req) => {
       });
       const header = `**${(proc as any).name}**${(proc as any).area ? ` · ${(proc as any).area}` : ""}`;
       return await respond(admin, companyId, channelName, `${header}\n${lines.join("\n") || "(sem passos)"}`, "response");
+    }
+
+    case "listar-rotinas": {
+      const { data: rows } = await admin
+        .from("routines")
+        .select("name, frequency, instruction")
+        .eq("company_id", companyId)
+        .eq("status", "pending_approval")
+        .order("created_at", { ascending: true })
+        .limit(20);
+      if (!rows || rows.length === 0) return await respond(admin, companyId, channelName, "Nenhuma rotina aguardando aprovação. ✅");
+      const lines = rows.map((r: any) => `• **${r.name}** _(${r.frequency})_ — ${String(r.instruction ?? "").slice(0, 100)}`);
+      return await respond(admin, companyId, channelName,
+        `**Rotinas pendentes de aprovação**\n${lines.join("\n")}\n\nUse \`/aprovar-rotina <nome>\` para aprovar e despachar.`);
+    }
+
+    case "aprovar-rotina": {
+      const caller = interaction.member?.user ?? interaction.user ?? null;
+      const member = await findTeamMember(admin, companyId, caller);
+      if (!canApprove(member)) {
+        await admin.from("execution_logs").insert({
+          company_id: companyId, type: "action",
+          content: `Aprovação de rotina negada a @${callerHandle} — sem permissão de aprovação.`,
+        });
+        return await respond(admin, companyId, channelName,
+          "Você não tem permissão para aprovar rotinas (precisa de \"Autoriza aprovações\"). Avisei o admin no painel.", "alert", true);
+      }
+      const q = String(interaction.data?.options?.[0]?.value ?? "").trim();
+      if (!q) return await respond(admin, companyId, channelName, "Use: `/aprovar-rotina <nome ou id>`.", "response", true);
+
+      let routine: any = null;
+      if (UUID_RE.test(q)) {
+        routine = (await admin.from("routines").select("id, name, status").eq("company_id", companyId).eq("id", q).maybeSingle()).data;
+      }
+      if (!routine) {
+        routine = (await admin.from("routines").select("id, name, status").eq("company_id", companyId).ilike("name", `%${q}%`).limit(1).maybeSingle()).data;
+      }
+      if (!routine) return await respond(admin, companyId, channelName, `Não encontrei uma rotina com "${q}".`, "response", true);
+
+      await admin.from("routines").update({ status: "active", approved: true }).eq("id", routine.id);
+      await admin.from("execution_logs").insert({
+        company_id: companyId, type: "action",
+        content: `Rotina '${routine.name}' aprovada por @${callerHandle} via Discord.`,
+      });
+      await dispatchOrchestrator(supabaseUrl, serviceKey, { type: "routine", routine_id: routine.id, company_id: companyId });
+      return await respond(admin, companyId, channelName, `✅ Rotina **${routine.name}** aprovada e despachada para o Atlas.`);
+    }
+
+    case "status-atlas": {
+      const { data: company } = await admin.from("companies").select("owner_id").eq("id", companyId).maybeSingle();
+      let inst: any = null;
+      if (company?.owner_id) {
+        inst = (await admin.from("atlas_instances")
+          .select("last_seen, ingress_url, openclaw_version")
+          .eq("owner_user_id", company.owner_id).maybeSingle()).data;
+      }
+      const online = !!inst?.last_seen && (Date.now() - new Date(inst.last_seen).getTime()) < 10 * 60 * 1000;
+      const { count: running } = await admin.from("agent_runs")
+        .select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("status", "dispatched");
+      const last = inst?.last_seen ? new Date(inst.last_seen).toLocaleString("pt-BR") : "nunca";
+      return await respond(admin, companyId, channelName,
+        `**Atlas (instância)**\n` +
+        `${online ? "🟢 online" : "🔴 offline"}${inst?.openclaw_version ? ` · v${inst.openclaw_version}` : ""}\n` +
+        `Última atividade: ${last}\n` +
+        `Runs em execução: ${running ?? 0}`);
     }
 
     default:
