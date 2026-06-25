@@ -1,4 +1,5 @@
 // Atlas COO - setup installer
+// v2 - URL corrigida para viverdeia-agenteautonomocoo
 /**
  * GET /setup-installer?token=xxx
  * Público (verify_jwt=false). Valida o installer_token (gerado em
