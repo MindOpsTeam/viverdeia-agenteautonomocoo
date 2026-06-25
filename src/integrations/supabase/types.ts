@@ -118,6 +118,73 @@ export type Database = {
           },
         ]
       }
+      agent_runs: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          finished_at: string | null
+          id: string
+          instance_id: string | null
+          result: Json | null
+          routine_id: string | null
+          started_at: string | null
+          status: string
+          task_id: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          finished_at?: string | null
+          id?: string
+          instance_id?: string | null
+          result?: Json | null
+          routine_id?: string | null
+          started_at?: string | null
+          status?: string
+          task_id?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          finished_at?: string | null
+          id?: string
+          instance_id?: string | null
+          result?: Json | null
+          routine_id?: string | null
+          started_at?: string | null
+          status?: string
+          task_id?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_runs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "routines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys_registry: {
         Row: {
           created_at: string | null
@@ -158,10 +225,12 @@ export type Database = {
           hostname: string | null
           id: string
           ingress_url: string | null
+          last_seen: string | null
           openclaw_dashboard_token: string | null
           openclaw_version: string | null
           owner_user_id: string | null
           registered_at: string | null
+          system_prompt: string | null
         }
         Insert: {
           agent_type?: string | null
@@ -169,10 +238,12 @@ export type Database = {
           hostname?: string | null
           id?: string
           ingress_url?: string | null
+          last_seen?: string | null
           openclaw_dashboard_token?: string | null
           openclaw_version?: string | null
           owner_user_id?: string | null
           registered_at?: string | null
+          system_prompt?: string | null
         }
         Update: {
           agent_type?: string | null
@@ -180,10 +251,12 @@ export type Database = {
           hostname?: string | null
           id?: string
           ingress_url?: string | null
+          last_seen?: string | null
           openclaw_dashboard_token?: string | null
           openclaw_version?: string | null
           owner_user_id?: string | null
           registered_at?: string | null
+          system_prompt?: string | null
         }
         Relationships: []
       }
@@ -1099,6 +1172,10 @@ export type Database = {
         Returns: boolean
       }
       read_credential: {
+        Args: { p_company_id: string; p_service: string }
+        Returns: string
+      }
+      read_credential_service: {
         Args: { p_company_id: string; p_service: string }
         Returns: string
       }
