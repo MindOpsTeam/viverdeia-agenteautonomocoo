@@ -1,3 +1,4 @@
+// Atlas COO - setup installer
 /**
  * GET /setup-installer?token=xxx
  * Público (verify_jwt=false). Valida o installer_token (gerado em
