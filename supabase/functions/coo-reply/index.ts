@@ -5,6 +5,7 @@
 // Atualiza agent_runs (status/content/result), reflete na tasks (done/blocked + evidência)
 // e registra em execution_logs.
 import { adminClient, corsHeaders, errorResponse, jsonResponse, validatePanelToken } from "../_shared/panel.ts";
+import { updateNotionTaskStatus, isNotionPageId } from "../_shared/notion.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -50,6 +51,12 @@ Deno.serve(async (req: Request) => {
       patch.block_reason = content ?? "Bloqueado pelo agente.";
     }
     await admin.from("tasks").update(patch).eq("id", run.task_id);
+
+    // Espelha o status na página do Notion, se a tarefa veio do Notion (best-effort).
+    const { data: tk } = await admin.from("tasks").select("notion_task_id").eq("id", run.task_id).maybeSingle();
+    if (isNotionPageId(tk?.notion_task_id)) {
+      await updateNotionTaskStatus(run.company_id, tk!.notion_task_id as string, status === "done" ? "done" : "blocked");
+    }
   }
 
   // Feed em tempo real.

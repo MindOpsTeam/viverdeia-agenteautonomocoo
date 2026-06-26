@@ -12,6 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
+import { createNotionTask } from "../_shared/notion.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,7 +114,7 @@ async function canConsultProcess(
 }
 
 // Comandos que fazem o agente agir (exigem permissão "can_command").
-const ACTION_COMMANDS = new Set(["executa", "pausa", "retoma", "report"]);
+const ACTION_COMMANDS = new Set(["executa", "pausa", "retoma", "report", "nova-tarefa"]);
 
 // Verifica se quem acionou tem permissão para dar ordens.
 // Regra 9.1: membro sem "can_command" recebe resposta educada + admin é avisado.
@@ -413,6 +414,29 @@ Deno.serve(async (req) => {
       });
       await dispatchOrchestrator(supabaseUrl, serviceKey, { type: "routine", routine_id: routine.id, company_id: companyId });
       return await respond(admin, companyId, channelName, `✅ Rotina **${routine.name}** aprovada e despachada para o Atlas.`);
+    }
+
+    case "nova-tarefa": {
+      const title = String(interaction.data?.options?.[0]?.value ?? "").trim();
+      if (!title) return await respond(admin, companyId, channelName, "Use: `/nova-tarefa <título>`.", "response", true);
+      const synthId = `discord-${crypto.randomUUID()}`;
+      const { data: task } = await admin.from("tasks").insert({
+        company_id: companyId, notion_task_id: synthId, title,
+        status: "todo", priority: "medium", assigned_to: "coo", source: "discord", is_adhoc: true,
+      }).select("id").maybeSingle();
+
+      // Espelha no Notion (best-effort) e guarda o page id em notion_task_id.
+      const page = await createNotionTask(companyId, { title });
+      let link = "";
+      if (page && task?.id) {
+        await admin.from("tasks").update({ notion_task_id: page.notion_page_id }).eq("id", task.id);
+        link = `\nNotion: https://www.notion.so/${page.notion_page_id.replace(/-/g, "")}`;
+      }
+      await admin.from("execution_logs").insert({
+        company_id: companyId, task_id: task?.id ?? null, type: "action",
+        content: `Tarefa criada via Discord por @${callerHandle}: ${title}`,
+      });
+      return await respond(admin, companyId, channelName, `✅ Tarefa criada: **${title}**${link}`);
     }
 
     case "status-atlas": {

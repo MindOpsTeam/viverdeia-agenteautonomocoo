@@ -4,6 +4,7 @@
 // responde conversacionalmente. Não persiste (conversa de painel, não canal externo).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createNotionTask } from "../_shared/notion.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const MODEL = "claude-sonnet-4-6";
 type ChatTurn = { role: "user" | "assistant"; content: string };
 
 // ---- D2: detecção de intenção de ação na mensagem do usuário ----
-type Intent = { type: "task" | "routine" | "brain_sync"; query?: string };
+type Intent = { type: "task" | "routine" | "brain_sync" | "create_task"; query?: string };
 
 function cleanQuery(s: string): string {
   return s.replace(/^(a|o|as|os|tarefa|rotina|de|do|da)\s+/i, "").replace(/["'?!.]+$/, "").trim();
@@ -24,8 +25,10 @@ function cleanQuery(s: string): string {
 
 function parseIntent(message: string): Intent | null {
   const lower = message.toLowerCase();
+  let m = lower.match(/(?:cria\w*|nova|adicion\w*|registr\w*|anot\w*)\s+(?:uma?\s+)?(?:tarefa|task|to-?do)\s+(.+)/);
+  if (m && m[1]) return { type: "create_task", query: cleanQuery(m[1]) };
   if (/(sincroniz|\bsync\b|atualiza\w*\s+(o\s+)?(brain|c[ée]rebro))/.test(lower)) return { type: "brain_sync" };
-  let m = lower.match(/(?:execut\w*|roda\w*|processa\w*)\s+(.+)/);
+  m = lower.match(/(?:execut\w*|roda\w*|processa\w*)\s+(.+)/);
   if (m && m[1]) return { type: "task", query: cleanQuery(m[1]) };
   m = lower.match(/(?:inicia\w*|come[çc]a\w*|dispara\w*)\s+(.+)/);
   if (m && m[1]) return { type: "routine", query: cleanQuery(m[1]) };
@@ -50,6 +53,22 @@ async function callOrchestrator(
 async function dispatchIntent(
   admin: any, url: string, serviceKey: string, companyId: string, intent: Intent,
 ): Promise<{ reply: string; action: Record<string, unknown> | null } | null> {
+  if (intent.type === "create_task") {
+    const title = (intent.query ?? "").trim();
+    if (!title) return null;
+    const synthId = `chat-${crypto.randomUUID()}`;
+    const { data: t } = await admin.from("tasks").insert({
+      company_id: companyId, notion_task_id: synthId, title,
+      status: "todo", priority: "medium", assigned_to: "coo", source: "chat", is_adhoc: true,
+    }).select("id").maybeSingle();
+    let extra = "";
+    const page = await createNotionTask(companyId, { title });
+    if (page && t?.id) {
+      await admin.from("tasks").update({ notion_task_id: page.notion_page_id }).eq("id", t.id);
+      extra = " e espelhei no Notion";
+    }
+    return { action: { type: "create_task", ok: !!t }, reply: `✅ Criei a tarefa **${title}**${extra}.` };
+  }
   if (intent.type === "brain_sync") {
     const r = await callOrchestrator(url, serviceKey, { type: "brain_sync", company_id: companyId });
     return {
