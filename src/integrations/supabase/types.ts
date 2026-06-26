@@ -27,6 +27,7 @@ export type Database = {
           company_website: string | null
           created_at: string | null
           daily_report_time: string | null
+          discord_application_id: string | null
           discord_channel_id: string | null
           discord_public_key: string | null
           discord_server_id: string | null
@@ -59,6 +60,7 @@ export type Database = {
           company_website?: string | null
           created_at?: string | null
           daily_report_time?: string | null
+          discord_application_id?: string | null
           discord_channel_id?: string | null
           discord_public_key?: string | null
           discord_server_id?: string | null
@@ -91,6 +93,7 @@ export type Database = {
           company_website?: string | null
           created_at?: string | null
           daily_report_time?: string | null
+          discord_application_id?: string | null
           discord_channel_id?: string | null
           discord_public_key?: string | null
           discord_server_id?: string | null
