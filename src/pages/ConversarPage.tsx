@@ -17,10 +17,10 @@ import { useInstanceStatus } from "@/hooks/useInstanceStatus";
 const sb = () => supabase as any;
 
 const QUICK_SUGGESTIONS = [
-  "Resumo de hoje",
+  "Executar tarefas pendentes",
+  "Status do dia",
+  "Sincronizar backlog",
   "O que está bloqueado?",
-  "Extrair relatório de leads",
-  "Postar resumo no Discord",
 ];
 
 const TYPE_LABEL: Record<string, string> = {
@@ -79,7 +79,7 @@ export default function ConversarPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-4xl">
+      <div className="space-y-6 max-w-5xl">
         <header className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">Conversar</h1>
@@ -128,48 +128,62 @@ function ChatDireto({ companyId }: { companyId: string }) {
   };
 
   return (
-    <div className="rounded-xl border bg-card flex flex-col h-[60vh]">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Dê uma ordem ou pergunte algo. O agente responde com base na identidade e diretrizes do Cérebro.
-          </p>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            {m.role === "assistant" && <div className="h-7 w-7 rounded-full bg-info text-white flex items-center justify-center shrink-0"><Bot className="h-4 w-4" /></div>}
-            <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted"}`}>
-              {m.action && (
-                <Badge className="mb-1.5 bg-info hover:bg-info text-white text-[10px]"><Zap className="h-3 w-3 mr-0.5" /> Despachado para o Atlas</Badge>
-              )}
-              {m.role === "assistant" ? <MarkdownMessage content={m.content} /> : m.content}
-            </div>
-            {m.role === "user" && <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0"><User className="h-4 w-4" /></div>}
+    <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+      <aside className="space-y-3">
+        <div className="rounded-xl border bg-card p-3">
+          <p className="text-xs font-semibold mb-2 text-muted-foreground">Comandos rápidos</p>
+          <div className="flex flex-col gap-1.5">
+            {QUICK_SUGGESTIONS.map((s) => (
+              <button key={s} onClick={() => send(s)} disabled={sending}
+                className="text-left text-xs rounded-lg border px-3 py-2 hover:bg-muted transition-colors disabled:opacity-50">
+                {s}
+              </button>
+            ))}
           </div>
-        ))}
-        {sending && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> O agente está pensando…</div>}
-        <div ref={endRef} />
-      </div>
-
-      <div className="border-t p-3 space-y-2">
-        <div className="flex flex-wrap gap-2">
-          {QUICK_SUGGESTIONS.map((s) => (
-            <button key={s} onClick={() => send(s)} disabled={sending}
-              className="text-xs rounded-full border px-3 py-1 hover:bg-muted transition-colors disabled:opacity-50">
-              {s}
-            </button>
-          ))}
         </div>
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") send(input); }}
-            placeholder="Dê uma ordem em linguagem natural..."
-          />
-          <Button onClick={() => send(input)} disabled={sending || !input.trim()}>
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+        <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
+          O Atlas responde aqui e também age: peça <span className="font-medium">"executar &lt;tarefa&gt;"</span>,
+          <span className="font-medium"> "iniciar &lt;rotina&gt;"</span> ou <span className="font-medium">"sincronizar backlog"</span> e ele despacha para a VPS.
+        </p>
+      </aside>
+
+      <div className="rounded-xl border bg-card flex flex-col h-[60vh]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground gap-2">
+              <div className="h-10 w-10 rounded-full bg-info/10 text-info flex items-center justify-center"><Bot className="h-5 w-5" /></div>
+              <p className="text-sm font-medium text-foreground">Converse e dê ordens ao Atlas</p>
+              <p className="text-xs max-w-xs">Ex.: "executar relatório semanal", "status do dia", "sincronizar backlog". Ações são despachadas para o Atlas na VPS.</p>
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              {m.role === "assistant" && <div className="h-7 w-7 rounded-full bg-info text-white flex items-center justify-center shrink-0"><Bot className="h-4 w-4" /></div>}
+              <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground whitespace-pre-wrap" : "bg-muted"}`}>
+                {m.action && (
+                  <Badge className="mb-1.5 bg-info hover:bg-info text-white text-[10px]"><Zap className="h-3 w-3 mr-0.5" /> Despachado para o Atlas</Badge>
+                )}
+                {m.role === "assistant" ? <MarkdownMessage content={m.content} /> : m.content}
+              </div>
+              {m.role === "user" && <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0"><User className="h-4 w-4" /></div>}
+            </div>
+          ))}
+          {sending && <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> O agente está pensando…</div>}
+          <div ref={endRef} />
+        </div>
+
+        <div className="border-t p-3">
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") send(input); }}
+              placeholder="Dê uma ordem em linguagem natural..."
+            />
+            <Button onClick={() => send(input)} disabled={sending || !input.trim()}>
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
