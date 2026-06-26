@@ -1,4 +1,4 @@
-// v3 - reidratação do banco em todas as etapas
+// v4 - company_website persistido em agent_config
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
