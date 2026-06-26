@@ -1,3 +1,4 @@
+// Atlas COO - Notion integration v1
 // notion.ts — cria/atualiza páginas no database de Backlog do Notion da empresa.
 // Best-effort: nunca lança (retorna null/false) para não quebrar o fluxo que o chama.
 // Lê o token via read_credential_service e o database de backlog em agent_config.
