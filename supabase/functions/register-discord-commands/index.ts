@@ -1,3 +1,4 @@
+// Atlas COO - register Discord slash commands v1
 // register-discord-commands — registra os slash commands do Atlas no app Discord do cliente.
 // Chamado no onboarding ao conectar o Discord. Body: { applicationId, botToken, guildId? }.
 // Usa bulk-overwrite (PUT) — idempotente. Se guildId vier, registra como guild commands
