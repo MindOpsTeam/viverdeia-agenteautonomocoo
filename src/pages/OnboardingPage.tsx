@@ -96,6 +96,7 @@ type Form = {
   comm_provider: "discord" | "slack";
   discord_mode: "have" | "setup";
   discord_bot_token: string; discord_server_id: string; discord_public_key: string;
+  discord_application_id: string;
   discord_channels: DiscordChannel[];
   discord_channel_id: string;
   agent_name: string; tone: "direct" | "formal" | "informal";
@@ -111,7 +112,7 @@ const initialForm: Form = {
   openclaw_workspace_url: "", openclaw_token: "",
   backlog_provider: "notion", notion_mode: "have", notion_token: "", notion_databases: [],
   comm_provider: "discord", discord_mode: "have",
-  discord_bot_token: "", discord_server_id: "", discord_public_key: "",
+  discord_bot_token: "", discord_server_id: "", discord_public_key: "", discord_application_id: "",
   discord_channels: [], discord_channel_id: "",
   agent_name: "Atlas", tone: "direct", mission: "", presentation: "", operational_context: "",
   guardrails: [...DEFAULT_GUARDRAILS],
@@ -140,13 +141,29 @@ export default function OnboardingPage() {
   const [vpsChecks, setVpsChecks] = useState({ ran: false, ok: false, have: false });
   const [instance, setInstance] = useState<{ ingress_url: string | null } | null>(null);
   const [guardrailsSavedAt, setGuardrailsSavedAt] = useState<string | null>(null);
+  const [installCmd, setInstallCmd] = useState<string | null>(null);
+  const [installBusy, setInstallBusy] = useState(false);
   const hydrated = useRef(false);
   const dbHydrated = useRef(false);
   const ctxAppliedRef = useRef(false);
 
   const copyInstallCmd = async () => {
-    try { await navigator.clipboard.writeText(OPENCLAW_INSTALL_CMD); toast.success("Comando copiado"); }
+    try { await navigator.clipboard.writeText(installCmd ?? OPENCLAW_INSTALL_CMD); toast.success("Comando copiado"); }
     catch { toast.error("Não foi possível copiar"); }
+  };
+
+  // Gera o comando de instalação com token de uso único (onboarding-issue-token).
+  const generateInstall = async () => {
+    setInstallBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("onboarding-issue-token", { body: {} });
+      if (error) { toast.error("Falha ao gerar o comando de instalação"); return; }
+      const cmd = (data as any)?.install_command;
+      if (!cmd) { toast.error((data as any)?.error ?? "Resposta inválida do servidor"); return; }
+      setInstallCmd(cmd);
+      toast.success("Comando gerado — cole na sua VPS.");
+    } catch (e: any) { toast.error(e?.message ?? "Erro ao gerar o comando"); }
+    finally { setInstallBusy(false); }
   };
 
   // Aplica a identidade gerada pela IA. force=true sobrescreve campos já preenchidos.
@@ -225,6 +242,7 @@ export default function OnboardingPage() {
       discord_server_id: cfg.discord_server_id || "",
       discord_channel_id: cfg.discord_channel_id || "",
       discord_public_key: cfg.discord_public_key || "",
+      discord_application_id: cfg.discord_application_id || "",
     }));
 
     setTested({
@@ -438,6 +456,22 @@ export default function OnboardingPage() {
       await ob.mergeDraft({ validations: { discord: true } });
       setTested((t) => ({ ...t, discord: true }));
       toast.success(mode === "have" ? `${channels.length} canal(is) encontrados.` : "Canais criados no Discord.");
+
+      // Registra os slash commands no app Discord (precisa do Application ID).
+      if (form.discord_application_id.trim()) {
+        await ob.patchConfig({ discord_application_id: form.discord_application_id.trim() });
+        const { data: reg } = await supabase.functions.invoke("register-discord-commands", {
+          body: {
+            applicationId: form.discord_application_id.trim(),
+            botToken: form.discord_bot_token,
+            guildId: form.discord_server_id.trim() || undefined,
+          },
+        });
+        if ((reg as any)?.ok) toast.success(`✅ ${(reg as any).registered} comandos registrados no Discord.`);
+        else toast.error((reg as any)?.error ?? "Discord conectado, mas falhou ao registrar os comandos.");
+      } else {
+        toast.message("Informe o Application ID para registrar os slash commands automaticamente.");
+      }
     } catch (e: any) { toast.error(e?.message ?? "Erro no Discord"); }
     finally { setBusy(null); }
   };
@@ -553,6 +587,7 @@ export default function OnboardingPage() {
           discord_server_id: form.discord_server_id,
           discord_channel_id: form.discord_channel_id,
           discord_public_key: form.discord_public_key || null,
+          discord_application_id: form.discord_application_id || null,
         });
         break;
       }
@@ -763,12 +798,14 @@ export default function OnboardingPage() {
                 <Tutorial
                   title="Como obter sua Anthropic API Key"
                   steps={[
-                    "Acesse console.anthropic.com e faça login (ou crie sua conta).",
+                    "Acesse platform.anthropic.com e crie uma conta (ou faça login).",
                     "No menu lateral, clique em \"API Keys\".",
-                    "Clique em \"Create Key\", dê um nome (ex.: Atlas) e confirme.",
-                    "Copie a chave que começa com sk-ant- e cole abaixo. Ela só aparece uma vez.",
+                    "Clique em \"Create Key\" e dê um nome (ex.: \"Atlas COO\").",
+                    "Copie a chave gerada — começa com sk-ant-...",
+                    "⚠️ A chave só aparece uma vez — guarde em lugar seguro.",
+                    "Cole a chave no campo acima e clique em Testar.",
                   ]}
-                  link={{ href: "https://console.anthropic.com/settings/keys", label: "Abrir Anthropic Console" }}
+                  link={{ href: "https://platform.anthropic.com/settings/keys", label: "Abrir Anthropic Console" }}
                 />
                 <Field label="Anthropic API Key" ok={tested.anthropic}>
                   <div className="flex gap-2">
@@ -794,26 +831,30 @@ export default function OnboardingPage() {
                   </Badge>
                 )}
                 <Tutorial
-                  title="Como obter Repo URL e Personal Access Token"
+                  title="Como configurar o GitHub"
                   sections={[
                     {
-                      heading: "Como obter o PAT (Fine-grained token)",
+                      heading: "Criar o repositório",
                       steps: [
-                        "Acesse github.com/settings/tokens.",
-                        "Clique em \"Generate new token\" → \"Fine-grained token\".",
-                        "Configure: Token name = atlas-[nome-da-empresa]; Expiration = 1 year; Repository access = Only select repositories → selecione o repo que vai usar.",
-                        "Em Permissions → Repository permissions, ative: Contents = Read and write; Metadata = Read only (já vem automático).",
-                        "Clique \"Generate token\" e copie imediatamente — aparece apenas uma vez (começa com github_pat_).",
-                      ],
-                      link: { href: "https://github.com/settings/tokens", label: "Abrir tokens do GitHub" },
-                    },
-                    {
-                      heading: "Como obter a Repo URL",
-                      steps: [
-                        "Crie um repositório PRIVADO em github.com/new — nome sugerido: atlas-skills, marque \"Private\" e inicialize com um README.",
-                        "Copie a URL no formato https://github.com/seu-usuario/nome-do-repo.",
+                        "Acesse github.com e faça login.",
+                        "Clique no seu avatar → \"Your repositories\" → \"New\".",
+                        "Nome do repo: viverdeia-coo (ou o nome da sua empresa).",
+                        "Marque como \"Private\" → clique \"Create repository\".",
+                        "Copie a URL do repo (ex.: https://github.com/seu-usuario/viverdeia-coo).",
                       ],
                       link: { href: "https://github.com/new", label: "Criar repositório" },
+                    },
+                    {
+                      heading: "Gerar o Personal Access Token (fine-grained)",
+                      steps: [
+                        "Avatar → Settings → Developer Settings → Personal Access Tokens → Fine-grained tokens → \"Generate new token\".",
+                        "Nome: \"Atlas COO\"; Expiration: 1 year.",
+                        "Em \"Repository access\": selecione \"Only select repositories\" → escolha o repo criado.",
+                        "Em \"Permissions\": Contents → Read and write; Metadata → Read-only (automático).",
+                        "Clique \"Generate token\" → copie o token (começa com github_pat_...).",
+                        "Cole a URL e o token nos campos acima.",
+                      ],
+                      link: { href: "https://github.com/settings/tokens?type=beta", label: "Abrir tokens do GitHub" },
                     },
                   ]}
                 />
@@ -847,24 +888,34 @@ export default function OnboardingPage() {
 
                 {instance ? null : vpsSub === "install" ? (
                   <>
-                    {/* Passo 1 — instalar o OpenClaw */}
+                    {/* Passo 1 — instalar o OpenClaw (comando com token de uso único) */}
                     <div className="rounded-xl border bg-muted/40 p-4 space-y-3">
                       <p className="text-sm font-medium text-foreground">1. Instale o OpenClaw na sua VPS</p>
-                      <p className="text-sm text-muted-foreground">Acesse sua VPS via SSH e execute:</p>
-                      <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-                        <code className="flex-1 font-mono text-xs text-foreground break-all">{OPENCLAW_INSTALL_CMD}</code>
-                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyInstallCmd}><Copy className="h-3.5 w-3.5" /></Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Após a instalação, o comando retorna a URL e o token da sua instância. Copie os dois.</p>
+                      <p className="text-sm text-muted-foreground">Gere o comando abaixo (token de uso único, expira em ~30 min) e cole no terminal da VPS:</p>
+                      {installCmd ? (
+                        <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+                          <code className="flex-1 font-mono text-xs text-foreground break-all">{installCmd}</code>
+                          <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyInstallCmd}><Copy className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={generateInstall} disabled={installBusy}>
+                          {installBusy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                          Gerar comando de instalação
+                        </Button>
+                      )}
+                      <p className="text-xs text-muted-foreground">Ao final, o Atlas detecta a instância automaticamente — não precisa colar URL/token à mão.</p>
                     </div>
 
                     <Tutorial
-                      title="Como acessar minha VPS via SSH →"
+                      title="Como configurar sua VPS"
                       steps={[
-                        "No terminal (macOS/Linux) ou no PuTTY (Windows), conecte com: ssh root@IP-DA-VPS",
-                        "Use o IP e a senha/chave que o provedor da VPS (ex.: Hostinger) enviou ao criar o servidor.",
-                        "Já conectado, cole o comando de instalação acima e aguarde concluir.",
+                        "Contrate uma VPS Ubuntu 24.04 LTS (recomendado: Hostinger KVM1 ou equivalente — mínimo 1 vCPU, 4GB RAM, 50GB disco).",
+                        "No painel da Hostinger: acesse sua VPS → clique em \"Terminal\" (ou conecte via SSH: ssh root@IP-DA-VPS).",
+                        "Gere o comando acima e cole no terminal → pressione Enter.",
+                        "Aguarde a instalação completar (~5 minutos).",
+                        "Ao final, o Atlas detecta automaticamente a instância instalada.",
                       ]}
+                      link={{ href: "https://www.hostinger.com.br/vps", label: "Ver planos de VPS (Hostinger)" }}
                     />
 
                     <div className="space-y-2">
@@ -924,16 +975,32 @@ export default function OnboardingPage() {
                     <ModeToggle value={form.notion_mode} onChange={(v) => set("notion_mode", v as Form["notion_mode"])}
                       options={[{ value: "have", label: "Já tenho" }, { value: "create", label: "Criar pra mim" }]} />
                     <Tutorial
-                      title="Como obter o Notion Token (Internal Integration Secret)"
-                      steps={[
-                        "Abra notion.so/profile/integrations e clique em \"New integration\".",
-                        "Dê um nome (ex.: Atlas), associe ao workspace certo e salve.",
-                        "Em \"Configuration\", copie o Internal Integration Secret (começa com secret_ ou ntn_).",
-                        form.notion_mode === "have"
-                          ? "Abra cada database que o Atlas vai usar, clique em \"...\" → \"Connections\" → adicione a integração Atlas."
-                          : "Você não precisa criar database — o Atlas vai criar um automaticamente. Só garanta que a integração tenha acesso ao workspace.",
+                      title="Como conectar o Notion"
+                      sections={form.notion_mode === "have" ? [
+                        {
+                          heading: "Opção \"Já tenho\"",
+                          steps: [
+                            "Acesse notion.so → Settings → Connections → \"Develop or manage integrations\".",
+                            "Clique \"New integration\" → Nome: \"Atlas COO\" → selecione seu workspace.",
+                            "Em \"Capabilities\": marque Read, Update e Insert content.",
+                            "Clique \"Submit\" → copie o \"Internal Integration Secret\" (começa com secret_...).",
+                            "Para cada database: abra-o no Notion → \"...\" → Connections → selecione \"Atlas COO\".",
+                            "Cole o token acima e clique \"Conectar e listar databases\".",
+                          ],
+                          link: { href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" },
+                        },
+                      ] : [
+                        {
+                          heading: "Opção \"Criar pra mim\"",
+                          steps: [
+                            "Crie a integração \"Atlas COO\" no Notion (passos 1–4 da opção \"Já tenho\") e cole o token acima.",
+                            "O Atlas cria automaticamente um database \"Backlog\" no seu Notion.",
+                            "O database já vem com as colunas: Nome, Status, Prioridade, Responsável, Descrição.",
+                            "Compartilhe a página onde o database deve nascer com a integração Atlas COO (\"...\" → Connections).",
+                          ],
+                          link: { href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" },
+                        },
                       ]}
-                      link={{ href: "https://www.notion.so/profile/integrations", label: "Abrir integrações do Notion" }}
                     />
                     {form.notion_mode === "create" ? (
                       <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
@@ -1006,40 +1073,84 @@ export default function OnboardingPage() {
                     <ModeToggle value={form.discord_mode} onChange={(v) => set("discord_mode", v as Form["discord_mode"])}
                       options={[{ value: "have", label: "Já tenho servidor" }, { value: "setup", label: "Configurar pra mim" }]} />
                     <Tutorial
-                      title="Como obter Bot Token, Server ID e Public Key"
-                      steps={[
-                        "Acesse discord.com/developers/applications e clique em \"New Application\" (nome ex.: Atlas).",
-                        "Na aba \"Bot\" → Reset Token → copie o Bot Token. Ative os Privileged Gateway Intents (Message Content).",
-                        "Na aba \"General Information\" → copie a Public Key.",
-                        "Na aba \"OAuth2\" → URL Generator → marque bot + escopos Manage Channels e Send Messages → abra a URL gerada e adicione o bot ao seu servidor.",
-                        "No Discord, ative o Modo Desenvolvedor (Configurações → Avançado), clique com botão direito no nome do servidor → \"Copiar ID do servidor\". Esse é o Server (Guild) ID.",
+                      title="Como configurar o Discord"
+                      sections={[
+                        {
+                          heading: "Parte 1 — Criar o aplicativo",
+                          steps: [
+                            "Acesse discord.com/developers/applications → \"New Application\".",
+                            "Nome: \"Atlas COO\" (ou o nome da empresa) → \"Create\".",
+                            "Na aba \"General Information\", copie o Application ID e a Public Key.",
+                          ],
+                          link: { href: "https://discord.com/developers/applications", label: "Abrir Discord Developer Portal" },
+                        },
+                        {
+                          heading: "Parte 2 — Configurar o Bot",
+                          steps: [
+                            "No menu lateral → \"Bot\".",
+                            "\"Reset Token\" → confirme → copie o token (⚠️ só aparece uma vez).",
+                            "Em \"Privileged Gateway Intents\", ative o Message Content Intent.",
+                            "Permissões: Enviar mensagens, Usar comandos de barra, Ver canais, Mencionar todos, Anexar arquivos.",
+                          ],
+                        },
+                        {
+                          heading: "Parte 3 — Adicionar ao servidor",
+                          steps: [
+                            "Aba \"OAuth2\" → \"URL Generator\".",
+                            "Em \"Scopes\": marque \"bot\" e \"applications.commands\".",
+                            "Em \"Bot Permissions\": marque as mesmas permissões da Parte 2.",
+                            "Copie a URL gerada → abra no browser → selecione seu servidor → \"Autorizar\".",
+                          ],
+                        },
+                        {
+                          heading: "Parte 4 — Pegar Server ID e Channel ID",
+                          steps: [
+                            "Discord → Configurações → Avançado → ative \"Modo desenvolvedor\".",
+                            "Botão direito no servidor → \"Copiar ID do servidor\".",
+                            "Botão direito no canal de operações → \"Copiar ID do canal\".",
+                          ],
+                        },
+                        {
+                          heading: "Parte 5 — Conectar no Atlas",
+                          steps: [
+                            "Cole Bot Token, Application ID, Public Key e Server ID nos campos.",
+                            "Clique \"Conectar\" — o Atlas registra os slash commands automaticamente (/aprovar-rotina, /listar-rotinas, /status-atlas, /nova-tarefa).",
+                          ],
+                        },
                       ]}
-                      link={{ href: "https://discord.com/developers/applications", label: "Abrir Discord Developer Portal" }}
                     />
-                    <Field label="Discord Bot Token">
-                      <Input type="password" value={form.discord_bot_token} onChange={onInput("discord_bot_token")}
-                        placeholder={savedSecret("discord") ? "•••••• (salvo) — cole para reconectar" : "bot token"} />
-                    </Field>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Server (Guild) ID"><Input value={form.discord_server_id} onChange={onInput("discord_server_id")} /></Field>
-                      <Field label="Public Key"><Input value={form.discord_public_key} onChange={onInput("discord_public_key")} placeholder="para o Interactions Endpoint" /></Field>
-                    </div>
-                    {form.discord_mode === "setup" && (
-                      <p className="text-xs text-muted-foreground">O Atlas vai criar os canais <strong>#operações #relatórios #alertas</strong>. O bot precisa já estar no servidor com permissão “Gerenciar Canais”.</p>
-                    )}
-                    <Button variant="outline" onClick={() => connectDiscord(form.discord_mode)} disabled={busy === "discord" || !form.discord_bot_token.trim() || !form.discord_server_id.trim()}>
-                      {busy === "discord" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plug className="h-4 w-4 mr-1" />}
-                      {form.discord_mode === "have" ? "Conectar e listar canais" : "Criar canais"}
-                    </Button>
-                    {form.discord_channels.length > 0 && (
-                      <Field label="Canal principal (comandos e avisos)">
-                        <Select value={form.discord_channel_id} onValueChange={(v) => set("discord_channel_id", v)}>
-                          <SelectTrigger><SelectValue placeholder="Escolha o canal" /></SelectTrigger>
-                          <SelectContent>
-                            {form.discord_channels.map((c) => <SelectItem key={c.id} value={c.id}>#{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </Field>
+                    {form.discord_mode === "setup" ? (
+                      <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground space-y-2">
+                        <p>O Atlas <strong className="text-foreground">não cria servidores Discord</strong> — ele se conecta a um servidor que já existe.</p>
+                        <p>Crie um servidor gratuito no Discord (botão "+" → "Criar meu próprio") e depois volte para <strong className="text-foreground">"Já tenho servidor"</strong>.</p>
+                        <Button size="sm" variant="outline" onClick={() => set("discord_mode", "have")}>Já tenho servidor →</Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Field label="Discord Bot Token">
+                          <Input type="password" value={form.discord_bot_token} onChange={onInput("discord_bot_token")}
+                            placeholder={savedSecret("discord") ? "•••••• (salvo) — cole para reconectar" : "bot token"} />
+                        </Field>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="Server (Guild) ID"><Input value={form.discord_server_id} onChange={onInput("discord_server_id")} /></Field>
+                          <Field label="Application ID"><Input value={form.discord_application_id} onChange={onInput("discord_application_id")} placeholder="para registrar os comandos" /></Field>
+                        </div>
+                        <Field label="Public Key"><Input value={form.discord_public_key} onChange={onInput("discord_public_key")} placeholder="para o Interactions Endpoint" /></Field>
+                        <Button variant="outline" onClick={() => connectDiscord("have")} disabled={busy === "discord" || !form.discord_bot_token.trim() || !form.discord_server_id.trim()}>
+                          {busy === "discord" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plug className="h-4 w-4 mr-1" />}
+                          Conectar
+                        </Button>
+                        {form.discord_channels.length > 0 && (
+                          <Field label="Canal principal (comandos e avisos)">
+                            <Select value={form.discord_channel_id} onValueChange={(v) => set("discord_channel_id", v)}>
+                              <SelectTrigger><SelectValue placeholder="Escolha o canal" /></SelectTrigger>
+                              <SelectContent>
+                                {form.discord_channels.map((c) => <SelectItem key={c.id} value={c.id}>#{c.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </Field>
+                        )}
+                      </>
                     )}
                   </>
                 )}
