@@ -1,3 +1,4 @@
+// v3 - reidratação do banco em todas as etapas
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
