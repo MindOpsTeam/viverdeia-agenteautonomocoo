@@ -1,3 +1,4 @@
+// v2 - detecção de intenção + coo-orchestrator
 // coo-chat: chat direto do gestor com o Atlas no painel.
 // Lê a chave Anthropic do cliente no Vault + o contexto (soul/agents/user md) e
 // responde conversacionalmente. Não persiste (conversa de painel, não canal externo).

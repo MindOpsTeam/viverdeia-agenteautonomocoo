@@ -120,8 +120,10 @@ export type Database = {
       }
       agent_runs: {
         Row: {
+          company_id: string | null
           content: string | null
           created_at: string | null
+          error: string | null
           finished_at: string | null
           id: string
           instance_id: string | null
@@ -134,8 +136,10 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          company_id?: string | null
           content?: string | null
           created_at?: string | null
+          error?: string | null
           finished_at?: string | null
           id?: string
           instance_id?: string | null
@@ -148,8 +152,10 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          company_id?: string | null
           content?: string | null
           created_at?: string | null
+          error?: string | null
           finished_at?: string | null
           id?: string
           instance_id?: string | null
@@ -162,6 +168,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "agent_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agent_runs_instance_id_fkey"
             columns: ["instance_id"]
@@ -960,6 +973,7 @@ export type Database = {
       }
       routines: {
         Row: {
+          approved: boolean | null
           company_id: string
           created_at: string | null
           frequency: string
@@ -976,6 +990,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          approved?: boolean | null
           company_id: string
           created_at?: string | null
           frequency: string
@@ -992,6 +1007,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          approved?: boolean | null
           company_id?: string
           created_at?: string | null
           frequency?: string
