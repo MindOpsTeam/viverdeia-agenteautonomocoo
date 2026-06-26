@@ -42,10 +42,11 @@ BEGIN
   END LOOP;
 END $$;
 
--- agent_runs: mantém "service_role write"; troca a leitura para owner + staff.
+-- agent_runs é user_id-based (sem company_id): mantém "service_role write";
+-- leitura = dono do run (user_id) OU staff.
 DROP POLICY IF EXISTS "owner read" ON public.agent_runs;
 DROP POLICY IF EXISTS "read_access" ON public.agent_runs;
 CREATE POLICY "read_access" ON public.agent_runs FOR SELECT USING (
-  company_id IN (SELECT id FROM public.companies WHERE owner_id = auth.uid())
+  user_id = auth.uid()
   OR public.is_company_staff()
 );
