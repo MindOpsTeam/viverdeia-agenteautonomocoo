@@ -212,7 +212,7 @@ export default function OnboardingPage() {
       ...f,
       name: ob.snapshot.companyName || f.name,
       timezone: cfg.timezone || f.timezone,
-      company_website: (ob.draft as any)?.company_website || f.company_website,
+      company_website: cfg.company_website || (ob.draft as any)?.company_website || f.company_website,
       segment: cfg.segment || f.segment,
       business_model: cfg.business_model || f.business_model,
       team_size: cfg.team_size || f.team_size,
@@ -516,6 +516,7 @@ export default function OnboardingPage() {
         if (!cid) throw new Error("Falha ao salvar a empresa");
         await ob.patchConfig({
           timezone: form.timezone,
+          company_website: form.company_website.trim() || null,
           segment: form.segment || null,
           business_model: form.business_model || null,
           team_size: form.team_size || null,
