@@ -137,7 +137,10 @@ export default function OnboardingPage() {
   const [wizardBusy, setWizardBusy] = useState(false);
   const [vpsSub, setVpsSub] = useState<"install" | "creds">("install");
   const [vpsChecks, setVpsChecks] = useState({ ran: false, ok: false, have: false });
+  const [instance, setInstance] = useState<{ ingress_url: string | null } | null>(null);
+  const [guardrailsSavedAt, setGuardrailsSavedAt] = useState<string | null>(null);
   const hydrated = useRef(false);
+  const dbHydrated = useRef(false);
   const ctxAppliedRef = useRef(false);
 
   const copyInstallCmd = async () => {
@@ -238,6 +241,53 @@ export default function OnboardingPage() {
     const resume = Math.min(Math.max((ob.currentStep ?? 1) - 1, 0), STEPS.length - 1);
     setStepIdx(resume);
   }, [ob.isLoading, ob.isCompleted, ob.snapshot, ob.draft, ob.currentStep, navigate]);
+
+  // ---------- Reidratação do BANCO (estado real persistido) ----------
+  // Carrega identidade (company_context), guardrails (directives) e instância (atlas_instances).
+  // Nunca limpa: só preenche o que existe no banco. Roda uma vez quando a empresa é conhecida.
+  useEffect(() => {
+    const cid = ob.companyId;
+    if (!cid || dbHydrated.current) return;
+    dbHydrated.current = true;
+    (async () => {
+      const [{ data: ctx }, { data: dirs }, { data: inst }] = await Promise.all([
+        sb().from("company_context")
+          .select("agent_name, communication_tone, presentation, operational_context, mission")
+          .eq("company_id", cid).maybeSingle(),
+        sb().from("directives")
+          .select("content, created_at, updated_at")
+          .eq("company_id", cid).eq("status", "active").order("created_at", { ascending: true }),
+        sb().from("atlas_instances").select("ingress_url, last_seen").maybeSingle(),
+      ]);
+
+      if (ctx) {
+        setForm((f) => ({
+          ...f,
+          agent_name: ctx.agent_name || f.agent_name,
+          tone: ["direct", "formal", "informal"].includes(ctx.communication_tone) ? ctx.communication_tone : f.tone,
+          presentation: ctx.presentation ?? f.presentation,
+          operational_context: ctx.operational_context ?? f.operational_context,
+          mission: ctx.mission ?? f.mission,
+        }));
+      }
+
+      if (dirs && dirs.length) {
+        setForm((f) => ({ ...f, guardrails: dirs.map((d: any) => ({ content: d.content, reason: "" })) }));
+        const latest = dirs.reduce((m: string, d: any) => {
+          const ts = d.updated_at ?? d.created_at ?? "";
+          return ts > m ? ts : m;
+        }, "");
+        if (latest) setGuardrailsSavedAt(latest);
+      }
+
+      if (inst?.ingress_url) {
+        setInstance({ ingress_url: inst.ingress_url });
+        setForm((f) => ({ ...f, openclaw_workspace_url: f.openclaw_workspace_url || (inst.ingress_url as string) }));
+        setVpsChecks({ ran: true, ok: true, have: true });
+        setVpsSub("creds");
+      }
+    })();
+  }, [ob.companyId]);
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -605,6 +655,23 @@ export default function OnboardingPage() {
   const savedSecret = (svc: string) => credsPresent.includes(svc);
   const contextBadge = [form.segment, form.business_model, form.team_size].filter(Boolean).join(" · ");
 
+  // Estado real (persistido) de cada etapa → badge ✅ Configurado / ⚠️ Pendente.
+  const stepConfigured = (id: StepId): boolean => {
+    switch (id) {
+      case "empresa": return !!form.name.trim();
+      case "anthropic": return !!tested.anthropic || savedSecret("anthropic");
+      case "github": return !!tested.github || savedSecret("github") || !!form.github_repo_url.trim();
+      case "vps": return !!instance || !!tested.vps || savedSecret("openclaw");
+      case "backlog": return !!tested.notion || (savedSecret("notion") && form.notion_databases.length > 0);
+      case "comunicacao": return !!tested.discord || (savedSecret("discord") && !!form.discord_channel_id);
+      case "identidade": return !!form.agent_name.trim() && !!form.presentation.trim();
+      case "guardrails": return !!guardrailsSavedAt || form.guardrails.some((g) => g.content.trim());
+      default: return false;
+    }
+  };
+  const discordChannelName = form.discord_channels.find((c) => c.id === form.discord_channel_id)?.name ?? form.discord_channel_id;
+  const notionConfiguredCount = form.notion_databases.filter((d) => d.type !== "ignore").length || form.notion_databases.length;
+
   return (
     <div className="min-h-screen flex flex-col bg-[hsl(var(--background))]">
       <header className="border-b bg-card px-6 py-4">
@@ -638,6 +705,13 @@ export default function OnboardingPage() {
       <main className="flex-1 flex items-start justify-center px-6 py-10">
         <Card className="w-full max-w-2xl">
           <CardContent className="space-y-4 pt-6">
+            <div className="flex justify-end">
+              {stepConfigured(step.id) ? (
+                <Badge className="bg-success hover:bg-success text-white"><CheckCircle2 className="h-3 w-3 mr-1" /> Configurado</Badge>
+              ) : (
+                <Badge className="bg-warning hover:bg-warning text-white">⚠️ Pendente</Badge>
+              )}
+            </div>
             {/* 1 — Empresa */}
             {step.id === "empresa" && (
               <>
@@ -712,6 +786,11 @@ export default function OnboardingPage() {
             {step.id === "github" && (
               <>
                 <StepTitle title="GitHub (opcional)" desc="Repositório privado onde o Atlas versiona as skills compiladas. Pode pular e configurar depois." />
+                {form.github_repo_url.trim() && (
+                  <Badge className="bg-success hover:bg-success text-white">
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Conectado · {form.github_repo_url.replace(/^https?:\/\/github\.com\//, "")}
+                  </Badge>
+                )}
                 <Tutorial
                   title="Como obter Repo URL e Personal Access Token"
                   sections={[
@@ -756,7 +835,15 @@ export default function OnboardingPage() {
               <>
                 <StepTitle title="VPS + OpenClaw (opcional)" desc="O executor que roda ações de browser. Pode pular e configurar depois." />
 
-                {vpsSub === "install" ? (
+                {instance && (
+                  <div className="rounded-xl border border-success/40 bg-success/10 p-4 space-y-1">
+                    <p className="text-sm font-medium flex items-center gap-1.5 text-success"><CheckCircle2 className="h-4 w-4" /> OpenClaw instalado</p>
+                    <p className="text-xs text-muted-foreground break-all">Instância registrada · {instance.ingress_url}</p>
+                    <p className="text-xs text-muted-foreground">Não é preciso instalar de novo. Pode continuar.</p>
+                  </div>
+                )}
+
+                {instance ? null : vpsSub === "install" ? (
                   <>
                     {/* Passo 1 — instalar o OpenClaw */}
                     <div className="rounded-xl border bg-muted/40 p-4 space-y-3">
@@ -827,6 +914,11 @@ export default function OnboardingPage() {
                 />
                 {form.backlog_provider === "notion" && (
                   <>
+                    {savedSecret("notion") && form.notion_databases.length > 0 && (
+                      <Badge className="bg-success hover:bg-success text-white">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Conectado · {notionConfiguredCount} database(s)
+                      </Badge>
+                    )}
                     <ModeToggle value={form.notion_mode} onChange={(v) => set("notion_mode", v as Form["notion_mode"])}
                       options={[{ value: "have", label: "Já tenho" }, { value: "create", label: "Criar pra mim" }]} />
                     <Tutorial
@@ -904,6 +996,11 @@ export default function OnboardingPage() {
                 />
                 {form.comm_provider === "discord" && (
                   <>
+                    {(tested.discord || savedSecret("discord")) && form.discord_channel_id && (
+                      <Badge className="bg-success hover:bg-success text-white">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Ativo · servidor {form.discord_server_id || "—"} · canal #{discordChannelName}
+                      </Badge>
+                    )}
                     <ModeToggle value={form.discord_mode} onChange={(v) => set("discord_mode", v as Form["discord_mode"])}
                       options={[{ value: "have", label: "Já tenho servidor" }, { value: "setup", label: "Configurar pra mim" }]} />
                     <Tutorial
@@ -991,6 +1088,11 @@ export default function OnboardingPage() {
             {step.id === "guardrails" && (
               <>
                 <StepTitle title="Guardrails" desc="Regras que o Atlas sempre respeita. Edite as sugestões ou escreva as suas." />
+                {guardrailsSavedAt && (
+                  <Badge className="bg-success hover:bg-success text-white">
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Salvo em {new Date(guardrailsSavedAt).toLocaleString("pt-BR")}
+                  </Badge>
+                )}
                 {siteFilled && <Badge className="bg-info hover:bg-info text-white">Sugerido para o seu contexto · Edite como preferir</Badge>}
                 {form.guardrails.map((g, i) => (
                   <div key={i} className="space-y-1.5">
