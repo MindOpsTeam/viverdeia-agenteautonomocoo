@@ -24,6 +24,7 @@ export type Database = {
           checkpoint_time: string | null
           comm_provider: string | null
           company_id: string
+          company_website: string | null
           created_at: string | null
           daily_report_time: string | null
           discord_channel_id: string | null
@@ -55,6 +56,7 @@ export type Database = {
           checkpoint_time?: string | null
           comm_provider?: string | null
           company_id: string
+          company_website?: string | null
           created_at?: string | null
           daily_report_time?: string | null
           discord_channel_id?: string | null
@@ -86,6 +88,7 @@ export type Database = {
           checkpoint_time?: string | null
           comm_provider?: string | null
           company_id?: string
+          company_website?: string | null
           created_at?: string | null
           daily_report_time?: string | null
           discord_channel_id?: string | null
